@@ -1,8 +1,9 @@
 // file: src/app/hangul/data/hangul-groups.ts
 
+import { HANGUL_AUDIO_SRC_BY_ID } from './generated/hangul-audio.generated';
 import { HangulGroup } from './hangul-types';
 
-export const HANGUL_GROUPS: HangulGroup[] = [
+const RAW_HANGUL_GROUPS: HangulGroup[] = [
   {
     id: 'easy-consonants',
     title: 'Easy Consonants',
@@ -151,3 +152,11 @@ export const HANGUL_GROUPS: HangulGroup[] = [
     ],
   },
 ];
+
+export const HANGUL_GROUPS: HangulGroup[] = RAW_HANGUL_GROUPS.map(group => ({
+  ...group,
+  items: group.items.map(item => ({
+    ...item,
+    audioSrc: HANGUL_AUDIO_SRC_BY_ID[item.id],
+  })),
+}));

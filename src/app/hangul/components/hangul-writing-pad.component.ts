@@ -64,6 +64,7 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
   private pronunciation = inject(HangulPronunciationService);
 
   preview = input('');
+  audioSrc = input<string | undefined>();
 
   @ViewChild('canvas', { static: true })
   canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -115,9 +116,10 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
     this.ctx.clearRect(0, 0, rect.width, rect.height);
   }
 
-  pronounce(): void {
-    this.pronunciation.pronounce({
+  async pronounce(): Promise<void> {
+    await this.pronunciation.pronounce({
       text: this.preview(),
+      audioSrc: this.audioSrc(),
       lang: 'ko-KR',
       rate: 0.8,
     });

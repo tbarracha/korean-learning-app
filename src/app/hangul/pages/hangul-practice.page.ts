@@ -27,7 +27,9 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
                   {{ group()!.title }}
                 </h1>
 
-                <span class="rounded-full bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-300">
+                <span
+                  class="rounded-full bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-300"
+                >
                   {{ group()!.difficulty }}
                 </span>
               </div>
@@ -52,7 +54,9 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
                 }
               </div>
 
-              <span class="rounded-full bg-white/10 px-2.5 py-1 text-xs text-neutral-300">
+              <span
+                class="rounded-full bg-white/10 px-2.5 py-1 text-xs text-neutral-300"
+              >
                 {{ item()!.kind }}
               </span>
             </div>
@@ -60,22 +64,26 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
 
           <section class="space-y-3">
             <div class="flex items-center justify-between">
-              <h2 class="font-semibold">
-                Try writing it
-              </h2>
+              <h2 class="font-semibold">Try writing it</h2>
 
               <p class="text-sm text-neutral-500">
                 Preview disappears after first stroke
               </p>
             </div>
 
-            <app-hangul-writing-pad [preview]="item()!.hangul" />
+            <app-hangul-writing-pad
+              [preview]="item()!.hangul"
+              [audioSrc]="item()!.audioSrc"
+            />
           </section>
         } @else {
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p class="font-medium">Item not found.</p>
 
-            <a routerLink="/hangul" class="mt-2 inline-block text-sm text-sky-300">
+            <a
+              routerLink="/hangul"
+              class="mt-2 inline-block text-sm text-sky-300"
+            >
               Go back to Hangul home
             </a>
           </div>
@@ -89,11 +97,11 @@ export class HangulPracticePage {
 
   group = computed(() => {
     const groupId = this.route.snapshot.paramMap.get('groupId');
-    return HANGUL_GROUPS.find(group => group.id === groupId);
+    return HANGUL_GROUPS.find((group) => group.id === groupId);
   });
 
   item = computed(() => {
     const itemId = this.route.snapshot.paramMap.get('itemId');
-    return this.group()?.items.find(item => item.id === itemId);
+    return this.group()?.items.find((item) => item.id === itemId);
   });
 }

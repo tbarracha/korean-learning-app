@@ -12,6 +12,8 @@ export interface HangulItem {
   kind: HangulKind;
   similarSound?: string;
   notes?: string;
+
+  audioSrc?: string;
 }
 
 export interface HangulGroup {

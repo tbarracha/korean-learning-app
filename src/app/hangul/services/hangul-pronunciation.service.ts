@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
 
 export interface PronounceHangulOptions {
   text: string;
+  audioSrc?: string;
   lang?: string;
   rate?: number;
   pitch?: number;
@@ -13,26 +14,52 @@ export interface PronounceHangulOptions {
   providedIn: 'root',
 })
 export class HangulPronunciationService {
-  private readonly defaultLang = 'ko-KR';
+  async pronounce(options: PronounceHangulOptions): Promise<void> {
+    if (options.audioSrc) {
+      const played = await this.playLocalAudio(options.audioSrc);
 
-  pronounce(options: PronounceHangulOptions): void {
-    if (!this.canSpeak()) {
-      console.warn('Speech synthesis is not supported in this browser.');
-      return;
+      if (played) {
+        return;
+      }
+    }
+
+    this.pronounceWithBrowser(options);
+  }
+
+  private async playLocalAudio(src: string): Promise<boolean> {
+    try {
+      const audio = new Audio(src);
+      audio.currentTime = 0;
+
+      await audio.play();
+
+      return true;
+    } catch (error) {
+      console.warn('Local Hangul audio failed. Falling back to browser TTS.', {
+        src,
+        error,
+      });
+
+      return false;
+    }
+  }
+
+  private pronounceWithBrowser(options: PronounceHangulOptions): boolean {
+    if (!this.canUseNativeSpeech()) {
+      console.warn('Browser speech synthesis is not available.');
+      return false;
     }
 
     const text = options.text.trim();
 
     if (!text) {
-      return;
+      return false;
     }
-
-    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
 
-    utterance.lang = options.lang ?? this.defaultLang;
-    utterance.rate = options.rate ?? 0.85;
+    utterance.lang = options.lang ?? 'ko-KR';
+    utterance.rate = options.rate ?? 0.8;
     utterance.pitch = options.pitch ?? 1;
 
     const voice = this.findKoreanVoice();
@@ -41,18 +68,26 @@ export class HangulPronunciationService {
       utterance.voice = voice;
     }
 
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
+
+    return true;
   }
 
-  canSpeak(): boolean {
-    return typeof window !== 'undefined' && 'speechSynthesis' in window;
+  private canUseNativeSpeech(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      'speechSynthesis' in window &&
+      'SpeechSynthesisUtterance' in window
+    );
   }
 
   private findKoreanVoice(): SpeechSynthesisVoice | undefined {
     const voices = window.speechSynthesis.getVoices();
 
-    return voices.find(voice => {
-      return voice.lang.toLowerCase().startsWith('ko');
-    });
+    return (
+      voices.find(voice => voice.lang === 'ko-KR') ??
+      voices.find(voice => voice.lang.toLowerCase().startsWith('ko'))
+    );
   }
 }
