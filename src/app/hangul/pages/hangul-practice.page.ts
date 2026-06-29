@@ -13,31 +13,17 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
     <main class="min-h-dvh bg-neutral-950 text-white px-4 py-6">
       <section class="mx-auto max-w-md space-y-5">
         @if (item() && group()) {
-          <header class="space-y-3">
+          <header class="flex items-center gap-3">
             <a
               [routerLink]="['/hangul/groups', group()!.id]"
-              class="text-sm text-sky-300"
+              class="shrink-0 text-sm text-sky-300"
             >
               ← Back
             </a>
 
-            <div class="space-y-1">
-              <div class="flex items-center justify-between gap-3">
-                <h1 class="text-3xl font-bold">
-                  {{ group()!.title }}
-                </h1>
-
-                <span
-                  class="rounded-full bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-300"
-                >
-                  {{ group()!.difficulty }}
-                </span>
-              </div>
-
-              <p class="text-neutral-400">
-                {{ group()!.description }}
-              </p>
-            </div>
+            <h1 class="min-w-0 truncate text-lg font-semibold text-neutral-200">
+              {{ group()!.title }}
+            </h1>
           </header>
 
           <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -63,10 +49,10 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
           </section>
 
           <section class="space-y-3">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3">
               <h2 class="font-semibold">Try writing it</h2>
 
-              <p class="text-sm text-neutral-500">
+              <p class="text-right text-sm text-neutral-500">
                 Preview disappears after first stroke
               </p>
             </div>
