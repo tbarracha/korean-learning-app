@@ -38,7 +38,9 @@ interface DrawingPoint {
         ></div>
 
         @if (showPreview()) {
-          <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div
+            class="pointer-events-none absolute inset-0 flex items-center justify-center"
+          >
             <span
               class="select-none text-[10.5rem] font-bold leading-none text-neutral-200/80"
             >
@@ -47,10 +49,7 @@ interface DrawingPoint {
           </div>
         }
 
-        <canvas
-          #canvas
-          class="relative z-10 h-full w-full touch-none"
-        ></canvas>
+        <canvas #canvas class="relative z-10 h-full w-full touch-none"></canvas>
       </div>
 
       <div class="grid grid-cols-3 gap-2">
@@ -59,7 +58,7 @@ interface DrawingPoint {
           (click)="clear()"
           class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
         >
-          Clear
+          🧽 Clear
         </button>
 
         <button
@@ -67,7 +66,7 @@ interface DrawingPoint {
           (click)="pronounce()"
           class="rounded-2xl bg-sky-500 py-3 text-sm font-medium text-white active:scale-[0.98] transition"
         >
-          Pronounce
+          🔊 Pronounce
         </button>
 
         <button
@@ -75,7 +74,7 @@ interface DrawingPoint {
           (click)="showPreviewAgain()"
           class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
         >
-          Preview
+          👁️ Preview
         </button>
       </div>
     </div>

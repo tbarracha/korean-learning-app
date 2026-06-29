@@ -12,6 +12,7 @@ export interface HangulItem {
   kind: HangulKind;
   similarSound?: string;
   notes?: string;
+  ttsText?: string;
 
   audioSrc?: string;
 }

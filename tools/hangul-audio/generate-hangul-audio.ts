@@ -95,7 +95,7 @@ function getAudioJobs(): AudioJob[] {
 
       jobs.push({
         id: item.id,
-        text: item.hangul,
+        text: item.ttsText ?? item.hangul,
         outputBasePath,
         outputFilePath,
         audioSrc,
