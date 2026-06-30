@@ -34,6 +34,13 @@ import { HANGUL_GROUPS } from '../data/hangul-groups';
             </div>
           </header>
 
+          <a
+            [routerLink]="['/hangul/groups', group()!.id, 'test']"
+            class="block rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+          >
+            Test this group
+          </a>
+
           <div class="grid grid-cols-2 gap-3">
             @for (item of group()!.items; track item.id) {
               <a
