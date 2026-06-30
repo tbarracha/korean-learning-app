@@ -22,9 +22,9 @@ export interface HangulCelebrationOptions {
 }
 
 const AUDIO_BY_INTENSITY: Record<HangulCelebrationIntensity, string> = {
-  minimal: '/freesound_community-tada-fanfare-a-6313.mp3',
-  strong: '/koiroylers-tada-fanfare-356032.mp3',
-  perfect: '/tithuh-level-up-02-528919.mp3',
+  minimal: '/minimal_tithuh-level-up-02-528919.mp3',
+  strong: '/strong_freesound_community-tada-fanfare-a-6313.mp3',
+  perfect: 'perfect_/koiroylers-tada-fanfare-356032.mp3',
 };
 
 export const DEFAULT_HANGUL_CELEBRATION_AUDIO_SRC =
@@ -35,13 +35,16 @@ export const DEFAULT_HANGUL_CELEBRATION_AUDIO_SRC =
 })
 export class HangulCelebrationService {
   pieces = signal<HangulCelebrationPiece[]>([]);
+  burstStartedAt = signal<number | undefined>(undefined);
 
   private clearTimeoutId: number | undefined;
 
   async celebrate(options: HangulCelebrationOptions = {}): Promise<void> {
     const intensity = options.intensity ?? 'strong';
     const count = options.count ?? this.getDefaultCount(intensity);
+    const startedAt = Date.now();
 
+    this.burstStartedAt.set(startedAt);
     this.pieces.set(this.createPieces(count, intensity));
 
     if (this.clearTimeoutId !== undefined) {
@@ -59,6 +62,7 @@ export class HangulCelebrationService {
 
   clear(): void {
     this.pieces.set([]);
+    this.burstStartedAt.set(undefined);
 
     if (this.clearTimeoutId !== undefined) {
       window.clearTimeout(this.clearTimeoutId);
@@ -86,6 +90,16 @@ export class HangulCelebrationService {
       case 'perfect':
         return 5600;
     }
+  }
+
+  getElapsedMs(): number {
+    const startedAt = this.burstStartedAt();
+
+    if (startedAt === undefined) {
+      return 0;
+    }
+
+    return Math.max(0, Date.now() - startedAt);
   }
 
   private async playAudio(audioSrc: string): Promise<void> {

@@ -207,6 +207,7 @@ const DRAWING_PASSING_SCORE = 80;
                   [revealPreviewOnCheck]="false"
                   [showPreviewButton]="false"
                   [showSoundButton]="false"
+                  [interactionLocked]="selectedAnswer() !== undefined"
                   (shapeChecked)="handleDrawingScore($event)"
                 />
               } @else {

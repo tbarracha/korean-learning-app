@@ -38,7 +38,7 @@ import { HangulCelebrationService } from '../services/hangul-celebration.service
           <span
             class="confetti-piece absolute top-0"
             [style.left.%]="piece.left"
-            [style.animation-delay.ms]="piece.delay"
+            [style.animation-delay.ms]="getAnimationDelay(piece)"
             [style.animation-duration.ms]="piece.duration"
             [style.font-size.px]="piece.size"
             [style.transform]="'rotate(' + piece.rotation + 'deg)'"
@@ -52,4 +52,8 @@ import { HangulCelebrationService } from '../services/hangul-celebration.service
 })
 export class HangulCelebrationOverlayComponent {
   celebration = inject(HangulCelebrationService);
+
+  getAnimationDelay(piece: { delay: number }): number {
+    return piece.delay - this.celebration.getElapsedMs();
+  }
 }

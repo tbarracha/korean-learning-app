@@ -84,50 +84,54 @@ import { HangulCelebrationOverlayComponent } from './hangul-celebration-overlay.
         </div>
       }
 
-      <div
-        class="grid gap-2"
-        [style.grid-template-columns]="
-          'repeat(' +
-          (2 + (showSoundButton() ? 1 : 0) + (showPreviewButton() ? 1 : 0)) +
-          ', minmax(0, 1fr))'
-        "
-      >
-        <button
-          type="button"
-          (click)="clear()"
-          class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+      @if (visibleActionButtonCount() > 0) {
+        <div
+          class="grid gap-2"
+          [style.grid-template-columns]="
+            'repeat(' + visibleActionButtonCount() + ', minmax(0, 1fr))'
+          "
         >
-          🧽 Clear
-        </button>
+          @if (!interactionLocked()) {
+            <button
+              type="button"
+              (click)="clear()"
+              class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+            >
+              🧽 Clear
+            </button>
+          }
 
-        @if (showSoundButton()) {
-          <button
-            type="button"
-            (click)="pronounce()"
-            class="rounded-2xl bg-primary py-3 text-sm font-medium text-primary-content transition active:scale-[0.98]"
-          >
-            🔊 Sound
-          </button>
-        }
+          @if (showSoundButton()) {
+            <button
+              type="button"
+              (click)="pronounce()"
+              class="rounded-2xl bg-primary py-3 text-sm font-medium text-primary-content transition active:scale-[0.98]"
+            >
+              🔊 Sound
+            </button>
+          }
 
-        <button
-          type="button"
-          (click)="checkShape()"
-          class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
-        >
-          ✅ Check
-        </button>
+          @if (!interactionLocked()) {
+            <button
+              type="button"
+              (click)="checkShape()"
+              class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+            >
+              ✅ Check
+            </button>
+          }
 
-        @if (showPreviewButton()) {
-          <button
-            type="button"
-            (click)="showPreviewAgain()"
-            class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
-          >
-            👁️ Preview
-          </button>
-        }
-      </div>
+          @if (showPreviewButton()) {
+            <button
+              type="button"
+              (click)="showPreviewAgain()"
+              class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+            >
+              👁️ Preview
+            </button>
+          }
+        </div>
+      }
     </div>
   `,
 })
@@ -146,6 +150,7 @@ export class HangulWritingPadComponent
   revealPreviewOnCheck = input(true);
   showPreviewButton = input(true);
   showSoundButton = input(true);
+  interactionLocked = input(false);
 
   shapeChecked = output<HangulShapeScore>();
 
@@ -214,7 +219,7 @@ export class HangulWritingPadComponent
   }
 
   clear(): void {
-    if (!this.ctx) {
+    if (!this.ctx || this.interactionLocked()) {
       return;
     }
 
@@ -236,6 +241,10 @@ export class HangulWritingPadComponent
   }
 
   async checkShape(): Promise<void> {
+    if (this.interactionLocked()) {
+      return;
+    }
+
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
 
@@ -276,16 +285,25 @@ export class HangulWritingPadComponent
   }
 
   private resetPad(): void {
-    this.clear();
+    this.clearCanvasState();
     this.showPreview.set(this.initialPreviewVisible());
-    this.drawing = false;
-    this.lastPoint = undefined;
-    this.activePointerId = undefined;
     this.shapeScore.set(undefined);
 
     if (this.previewTimeoutId !== undefined) {
       window.clearTimeout(this.previewTimeoutId);
       this.previewTimeoutId = undefined;
+    }
+  }
+
+  private clearCanvasState(): void {
+    this.strokes = [];
+    this.currentStroke = undefined;
+    this.drawing = false;
+    this.lastPoint = undefined;
+    this.activePointerId = undefined;
+
+    if (this.ctx) {
+      this.clearCanvasPixels();
     }
   }
 
@@ -308,6 +326,10 @@ export class HangulWritingPadComponent
   }
 
   private startDrawing = (event: PointerEvent): void => {
+    if (this.interactionLocked()) {
+      return;
+    }
+
     event.preventDefault();
 
     const canvas = this.canvasRef.nativeElement;
@@ -494,6 +516,24 @@ export class HangulWritingPadComponent
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     };
+  }
+
+  visibleActionButtonCount(): number {
+    let count = 0;
+
+    if (!this.interactionLocked()) {
+      count += 2;
+    }
+
+    if (this.showSoundButton()) {
+      count++;
+    }
+
+    if (this.showPreviewButton()) {
+      count++;
+    }
+
+    return count;
   }
 }
 

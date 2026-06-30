@@ -1,8 +1,8 @@
 // file: src/app/hangul/pages/hangul-practice.page.ts
 
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulWritingPadComponent } from '../components/hangul-writing-pad.component';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
@@ -68,55 +68,65 @@ import { ThemeToggleButtonComponent } from '../../shared/theme/theme-toggle-butt
               [resetKey]="item()!.id"
               [preview]="item()!.hangul"
               [audioSrc]="item()!.audioSrc"
+              (shapeChecked)="handleShapeChecked()"
             />
           </section>
 
           <section class="space-y-3">
-            @if (nextItem()) {
-              <a
-                [routerLink]="[
-                  '/hangul/practice',
-                  group()!.id,
-                  nextItem()!.id
-                ]"
-                class="block rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
+            @if (!hasCheckedCurrentItem()) {
+              <button
+                type="button"
+                (click)="handleBottomAction()"
+                class="block w-full rounded-2xl bg-base-200 py-3 text-center text-sm font-medium text-base-content transition active:scale-[0.98]"
+              >
+                Check
+              </button>
+            } @else if (nextItem()) {
+              <button
+                type="button"
+                (click)="handleBottomAction()"
+                class="block w-full rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
               >
                 Next: {{ nextItem()!.romanization }}
-              </a>
+              </button>
             } @else {
               <div class="grid grid-cols-2 gap-2">
-                <a
-                  [routerLink]="[
-                    '/hangul/practice',
-                    group()!.id,
-                    firstItem()!.id
-                  ]"
+                <button
+                  type="button"
+                  (click)="restartGroup()"
                   class="rounded-2xl bg-base-200 py-3 text-center text-sm font-medium text-base-content transition active:scale-[0.98]"
                 >
                   Restart
-                </a>
+                </button>
 
                 @if (nextGroup() && nextGroup()!.items.length > 0) {
-                  <a
-                    [routerLink]="[
-                      '/hangul/practice',
-                      nextGroup()!.id,
-                      nextGroup()!.items[0].id
-                    ]"
+                  <button
+                    type="button"
+                    (click)="goToNextGroup()"
                     class="rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
                   >
                     Next group
-                  </a>
+                  </button>
                 } @else {
-                  <a
-                    routerLink="/hangul"
+                  <button
+                    type="button"
+                    (click)="finishPractice()"
                     class="rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
                   >
                     Finish
-                  </a>
+                  </button>
                 }
               </div>
 
+              <a
+                [routerLink]="['/hangul/groups', group()!.id, 'test']"
+                class="block rounded-2xl bg-base-200 py-3 text-center text-sm font-medium text-base-content transition active:scale-[0.98]"
+              >
+                Test this group
+              </a>
+            }
+
+            @if (!nextItem()) {
               <p class="text-center text-xs text-base-content/55">
                 You reached the end of this group.
               </p>
@@ -140,7 +150,11 @@ import { ThemeToggleButtonComponent } from '../../shared/theme/theme-toggle-butt
 })
 export class HangulPracticePage {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private pronunciation = inject(HangulPronunciationService);
+
+  @ViewChild(HangulWritingPadComponent)
+  private writingPad?: HangulWritingPadComponent;
 
   private lastPronouncedItemId: string | undefined;
 
@@ -149,6 +163,7 @@ export class HangulPracticePage {
   });
 
   groups = [...HANGUL_GROUPS].sort((a, b) => a.order - b.order);
+  hasCheckedCurrentItem = signal(false);
 
   groupId = computed(() => {
     return this.paramMap().get('groupId');
@@ -237,6 +252,55 @@ export class HangulPracticePage {
         lang: 'ko-KR',
         rate: 0.8,
       });
+
+      this.hasCheckedCurrentItem.set(false);
     });
+  }
+
+  async handleBottomAction(): Promise<void> {
+    if (!this.hasCheckedCurrentItem()) {
+      await this.writingPad?.checkShape();
+      return;
+    }
+
+    const group = this.group();
+    const nextItem = this.nextItem();
+
+    if (group && nextItem) {
+      await this.router.navigate(['/hangul/practice', group.id, nextItem.id]);
+    }
+  }
+
+  handleShapeChecked(): void {
+    this.hasCheckedCurrentItem.set(true);
+  }
+
+  async restartGroup(): Promise<void> {
+    const group = this.group();
+    const firstItem = this.firstItem();
+
+    if (!group || !firstItem) {
+      return;
+    }
+
+    await this.router.navigate(['/hangul/practice', group.id, firstItem.id]);
+  }
+
+  async goToNextGroup(): Promise<void> {
+    const nextGroup = this.nextGroup();
+
+    if (!nextGroup?.items.length) {
+      return;
+    }
+
+    await this.router.navigate([
+      '/hangul/practice',
+      nextGroup.id,
+      nextGroup.items[0].id,
+    ]);
+  }
+
+  async finishPractice(): Promise<void> {
+    await this.router.navigate(['/hangul']);
   }
 }
