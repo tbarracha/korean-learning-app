@@ -1,11 +1,11 @@
 // file: src/app/hangul/pages/hangul-group-test.page.ts
 
+import { NgClass } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
-import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
-import { NgClass } from '@angular/common';
 import { HangulItem } from '../data/hangul-types';
+import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
 
 type TestQuestionType =
   | 'hangul-to-romanization'
@@ -14,6 +14,8 @@ type TestQuestionType =
   | 'audio-to-romanization';
 
 type TestState = 'setup' | 'active' | 'finished';
+
+type ConfettiIntensity = 'minimal' | 'strong' | 'perfect';
 
 interface TestQuestion {
   id: string;
@@ -34,8 +36,11 @@ interface ConfettiPiece {
   emoji: string;
 }
 
-const COMPLETION_AUDIO_SRC = '/freesound_community-tada-fanfare-a-6313.mp3';
-const PASSING_SCORE_RATIO = 0.6;
+const COMPLETION_AUDIO_SRC = '/tithuh-level-up-02-528919.mp3';
+
+const MIN_PASSING_SCORE_RATIO = 0.5;
+const STRONG_PASSING_SCORE_RATIO = 0.8;
+const PERFECT_SCORE_RATIO = 1;
 
 @Component({
   selector: 'app-hangul-group-test-page',
@@ -90,7 +95,9 @@ const PASSING_SCORE_RATIO = 0.6;
               <div class="space-y-2">
                 <p class="text-sm text-sky-300">Test setup</p>
 
-                <h2 class="text-2xl font-bold">How many questions?</h2>
+                <h2 class="text-2xl font-bold">
+                  How many questions?
+                </h2>
 
                 <p class="text-sm text-neutral-400">
                   Questions are randomized and will not repeat inside the same
@@ -104,12 +111,7 @@ const PASSING_SCORE_RATIO = 0.6;
                     type="button"
                     (click)="selectedQuestionCount.set(size)"
                     class="rounded-2xl border py-4 text-center text-lg font-semibold transition active:scale-[0.98]"
-                    [class.border-sky-400]="selectedQuestionCount() === size"
-                    [class.bg-sky-500]="selectedQuestionCount() === size"
-                    [class.text-white]="selectedQuestionCount() === size"
-                    [class.border-white/10]="selectedQuestionCount() !== size"
-                    [class.bg-white/5]="selectedQuestionCount() !== size"
-                    [class.text-neutral-200]="selectedQuestionCount() !== size"
+                    [ngClass]="getQuestionCountClass(size)"
                   >
                     {{ size }}
                   </button>
@@ -210,9 +212,13 @@ const PASSING_SCORE_RATIO = 0.6;
                     <div class="flex items-start justify-between gap-3">
                       <div>
                         @if (selectedAnswer() === currentQuestion()!.answer) {
-                          <p class="font-semibold text-emerald-300">Correct</p>
+                          <p class="font-semibold text-emerald-300">
+                            Correct
+                          </p>
                         } @else {
-                          <p class="font-semibold text-red-300">Not quite</p>
+                          <p class="font-semibold text-red-300">
+                            Not quite
+                          </p>
 
                           <p class="mt-1 text-sm text-neutral-400">
                             Correct answer: {{ currentQuestion()!.answer }}
@@ -348,7 +354,7 @@ export class HangulGroupTestPage {
   correctCount = signal(0);
   answeredCount = signal(0);
 
-  confettiPieces: ConfettiPiece[] = createConfettiPieces(36);
+  confettiPieces: ConfettiPiece[] = [];
 
   group = computed(() => {
     const groupId = this.route.snapshot.paramMap.get('groupId');
@@ -398,25 +404,9 @@ export class HangulGroupTestPage {
   shouldShowConfetti = computed(() => {
     return (
       this.testState() === 'finished' &&
-      this.scoreRatio() >= PASSING_SCORE_RATIO
+      this.scoreRatio() >= MIN_PASSING_SCORE_RATIO
     );
   });
-
-  getOptionClass(option: string): string {
-    if (this.selectedAnswer() === undefined) {
-      return 'border-white/10 bg-white/5';
-    }
-
-    if (this.isCorrectOption(option)) {
-      return 'border-emerald-400 bg-emerald-400/15 text-emerald-200';
-    }
-
-    if (this.isWrongSelectedOption(option)) {
-      return 'border-red-400 bg-red-400/15 text-red-200';
-    }
-
-    return 'opacity-60';
-  }
 
   startTest(): void {
     const count = Math.min(
@@ -424,17 +414,14 @@ export class HangulGroupTestPage {
       this.allPossibleQuestionCount(),
     );
 
-    const questions = createRandomQuestionSet(
-      this.allPossibleQuestions(),
-      count,
-    );
+    const questions = createRandomQuestionSet(this.allPossibleQuestions(), count);
 
     this.questions.set(questions);
     this.currentQuestionIndex.set(0);
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = createConfettiPieces(36);
+    this.confettiPieces = [];
     this.testState.set('active');
   }
 
@@ -444,7 +431,7 @@ export class HangulGroupTestPage {
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = createConfettiPieces(36);
+    this.confettiPieces = [];
     this.testState.set('setup');
   }
 
@@ -453,7 +440,7 @@ export class HangulGroupTestPage {
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = createConfettiPieces(36);
+    this.confettiPieces = [];
     this.testState.set('active');
   }
 
@@ -485,9 +472,10 @@ export class HangulGroupTestPage {
 
   async goToNextQuestion(): Promise<void> {
     if (this.isLastQuestion()) {
+      this.refreshConfettiForScore();
       this.testState.set('finished');
 
-      if (this.scoreRatio() >= PASSING_SCORE_RATIO) {
+      if (this.scoreRatio() >= MIN_PASSING_SCORE_RATIO) {
         await this.playCompletionAudio();
       }
 
@@ -529,6 +517,30 @@ export class HangulGroupTestPage {
     );
   }
 
+  getQuestionCountClass(size: number): string {
+    if (this.selectedQuestionCount() === size) {
+      return 'border-sky-400 bg-sky-500 text-white';
+    }
+
+    return 'border-white/10 bg-white/5 text-neutral-200';
+  }
+
+  getOptionClass(option: string): string {
+    if (this.selectedAnswer() === undefined) {
+      return 'border-white/10 bg-white/5';
+    }
+
+    if (this.isCorrectOption(option)) {
+      return 'border-emerald-400 bg-emerald-400/15 text-emerald-200';
+    }
+
+    if (this.isWrongSelectedOption(option)) {
+      return 'border-red-400 bg-red-400/15 text-red-200';
+    }
+
+    return 'opacity-60';
+  }
+
   getQuestionLabel(type: TestQuestionType): string {
     switch (type) {
       case 'hangul-to-romanization':
@@ -552,19 +564,40 @@ export class HangulGroupTestPage {
 
     const ratio = correct / total;
 
-    if (ratio === 1) {
-      return 'Perfect. You know this group well.';
+    if (ratio === PERFECT_SCORE_RATIO) {
+      return 'Perfect. Clean run. You owned this group.';
     }
 
-    if (ratio >= PASSING_SCORE_RATIO) {
+    if (ratio >= STRONG_PASSING_SCORE_RATIO) {
       return 'Great work. You passed this group strongly.';
     }
 
-    if (ratio >= 0.5) {
-      return 'Decent start. Practice the missed ones again.';
+    if (ratio >= MIN_PASSING_SCORE_RATIO) {
+      return 'You passed, but barely. Review this group before moving on.';
     }
 
     return 'This group needs more practice. Go slower and repeat it.';
+  }
+
+  private refreshConfettiForScore(): void {
+    const ratio = this.scoreRatio();
+
+    if (ratio >= PERFECT_SCORE_RATIO) {
+      this.confettiPieces = createConfettiPieces(90, 'perfect');
+      return;
+    }
+
+    if (ratio >= STRONG_PASSING_SCORE_RATIO) {
+      this.confettiPieces = createConfettiPieces(36, 'strong');
+      return;
+    }
+
+    if (ratio >= MIN_PASSING_SCORE_RATIO) {
+      this.confettiPieces = createConfettiPieces(3, 'minimal');
+      return;
+    }
+
+    this.confettiPieces = [];
   }
 
   private async playQuestionAudio(question: TestQuestion): Promise<void> {
@@ -587,9 +620,7 @@ export class HangulGroupTestPage {
   }
 }
 
-function createAllPossibleQuestionsForGroup(
-  items: HangulItem[],
-): TestQuestion[] {
+function createAllPossibleQuestionsForGroup(items: HangulItem[]): TestQuestion[] {
   const questionTypes: TestQuestionType[] = [
     'hangul-to-romanization',
     'romanization-to-hangul',
@@ -672,15 +703,41 @@ function createOptions(
   return shuffle([answer, ...wrongOptions]);
 }
 
-function createConfettiPieces(count: number): ConfettiPiece[] {
-  const emojis = ['🎉', '✨', '⭐', '🌟', '💫'];
+function createConfettiPieces(
+  count: number,
+  intensity: ConfettiIntensity = 'strong',
+): ConfettiPiece[] {
+  const emojisByIntensity: Record<ConfettiIntensity, string[]> = {
+    minimal: ['✨', '⭐'],
+    strong: ['🎉', '✨', '⭐', '🌟', '💫'],
+    perfect: ['💎', '🔷', '🔹', '🎉', '✨', '⭐', '🌟', '💫'],
+  };
+
+  const durationByIntensity: Record<ConfettiIntensity, [number, number]> = {
+    minimal: [1600, 2400],
+    strong: [1800, 3600],
+    perfect: [1800, 4600],
+  };
+
+  const sizeByIntensity: Record<ConfettiIntensity, [number, number]> = {
+    minimal: [18, 24],
+    strong: [18, 30],
+    perfect: [20, 38],
+  };
+
+  const [minDuration, maxDuration] = durationByIntensity[intensity];
+  const [minSize, maxSize] = sizeByIntensity[intensity];
+  const emojis = emojisByIntensity[intensity];
 
   return Array.from({ length: count }, (_, index) => ({
     id: index,
     left: randomBetween(0, 100),
-    delay: randomBetween(0, 700),
-    duration: randomBetween(1800, 3600),
-    size: randomBetween(18, 30),
+    delay:
+      intensity === 'perfect'
+        ? randomBetween(0, 1200)
+        : randomBetween(0, 700),
+    duration: randomBetween(minDuration, maxDuration),
+    size: randomBetween(minSize, maxSize),
     rotation: randomBetween(0, 360),
     emoji: emojis[index % emojis.length],
   }));
