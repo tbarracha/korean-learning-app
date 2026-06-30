@@ -15,15 +15,12 @@ import {
 } from '@angular/core';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
 import { ThemeService } from '../../shared/theme/theme.service';
-
-interface DrawingPoint {
-  x: number;
-  y: number;
-}
-
-interface DrawingStroke {
-  points: DrawingPoint[];
-}
+import {
+  DrawingPoint,
+  DrawingStroke,
+  HangulShapeScore,
+  HangulShapeScoringService,
+} from '../services/hangul-shape-scoring.service';
 
 @Component({
   selector: 'app-hangul-writing-pad',
@@ -60,7 +57,25 @@ interface DrawingStroke {
         <canvas #canvas class="relative z-10 h-full w-full touch-none"></canvas>
       </div>
 
-      <div class="grid grid-cols-3 gap-2">
+      @if (shapeScore()) {
+        <div
+          class="rounded-2xl border border-base-300 bg-base-100 p-3 shadow-sm"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-base-content">Shape score</p>
+
+            <p class="text-lg font-bold text-primary">
+              {{ shapeScore()!.score }}%
+            </p>
+          </div>
+
+          <p class="mt-1 text-sm text-base-content/70">
+            {{ shapeScore()!.feedback }}
+          </p>
+        </div>
+      }
+
+      <div class="grid grid-cols-4 gap-2">
         <button
           type="button"
           (click)="clear()"
@@ -74,7 +89,15 @@ interface DrawingStroke {
           (click)="pronounce()"
           class="rounded-2xl bg-primary py-3 text-sm font-medium text-primary-content transition active:scale-[0.98]"
         >
-          🔊 Pronounce
+          🔊 Sound
+        </button>
+
+        <button
+          type="button"
+          (click)="checkShape()"
+          class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+        >
+          ✅ Check
         </button>
 
         <button
@@ -93,6 +116,7 @@ export class HangulWritingPadComponent
 {
   private pronunciation = inject(HangulPronunciationService);
   private theme = inject(ThemeService);
+  private shapeScoring = inject(HangulShapeScoringService);
 
   preview = input('');
   audioSrc = input<string | undefined>();
@@ -102,6 +126,7 @@ export class HangulWritingPadComponent
   canvasRef!: ElementRef<HTMLCanvasElement>;
 
   showPreview = signal(true);
+  shapeScore = signal<HangulShapeScore | undefined>(undefined);
 
   private ctx!: CanvasRenderingContext2D;
   private drawing = false;
@@ -168,6 +193,7 @@ export class HangulWritingPadComponent
     this.strokes = [];
     this.currentStroke = undefined;
     this.lastPoint = undefined;
+    this.shapeScore.set(undefined);
 
     this.clearCanvasPixels();
   }
@@ -179,6 +205,20 @@ export class HangulWritingPadComponent
       lang: 'ko-KR',
       rate: 0.8,
     });
+  }
+
+  checkShape(): void {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+
+    const score = this.shapeScoring.score({
+      character: this.preview(),
+      strokes: this.strokes,
+      drawingWidth: rect.width,
+      drawingHeight: rect.height,
+    });
+
+    this.shapeScore.set(score);
   }
 
   showPreviewAgain(): void {
@@ -199,6 +239,7 @@ export class HangulWritingPadComponent
     this.drawing = false;
     this.lastPoint = undefined;
     this.activePointerId = undefined;
+    this.shapeScore.set(undefined);
 
     if (this.previewTimeoutId !== undefined) {
       window.clearTimeout(this.previewTimeoutId);
@@ -232,6 +273,7 @@ export class HangulWritingPadComponent
     this.applyCanvasInkStyle();
 
     this.showPreview.set(false);
+    this.shapeScore.set(undefined);
     this.drawing = true;
     this.activePointerId = event.pointerId;
 
