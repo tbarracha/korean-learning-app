@@ -9,6 +9,7 @@ import {
   input,
   OnChanges,
   OnDestroy,
+  output,
   signal,
   SimpleChanges,
   ViewChild,
@@ -21,12 +22,20 @@ import {
   HangulShapeScore,
   HangulShapeScoringService,
 } from '../services/hangul-shape-scoring.service';
+import {
+  DEFAULT_HANGUL_CELEBRATION_AUDIO_SRC,
+  HangulCelebrationService,
+} from '../services/hangul-celebration.service';
+import { HangulCelebrationOverlayComponent } from './hangul-celebration-overlay.component';
 
 @Component({
   selector: 'app-hangul-writing-pad',
   standalone: true,
+  imports: [HangulCelebrationOverlayComponent],
   template: `
     <div class="space-y-3">
+      <app-hangul-celebration-overlay />
+
       <div
         class="relative h-80 w-full overflow-hidden rounded-3xl border border-base-300 bg-base-100 shadow-sm"
       >
@@ -75,7 +84,14 @@ import {
         </div>
       }
 
-      <div class="grid grid-cols-4 gap-2">
+      <div
+        class="grid gap-2"
+        [style.grid-template-columns]="
+          'repeat(' +
+          (2 + (showSoundButton() ? 1 : 0) + (showPreviewButton() ? 1 : 0)) +
+          ', minmax(0, 1fr))'
+        "
+      >
         <button
           type="button"
           (click)="clear()"
@@ -84,13 +100,15 @@ import {
           🧽 Clear
         </button>
 
-        <button
-          type="button"
-          (click)="pronounce()"
-          class="rounded-2xl bg-primary py-3 text-sm font-medium text-primary-content transition active:scale-[0.98]"
-        >
-          🔊 Sound
-        </button>
+        @if (showSoundButton()) {
+          <button
+            type="button"
+            (click)="pronounce()"
+            class="rounded-2xl bg-primary py-3 text-sm font-medium text-primary-content transition active:scale-[0.98]"
+          >
+            🔊 Sound
+          </button>
+        }
 
         <button
           type="button"
@@ -100,13 +118,15 @@ import {
           ✅ Check
         </button>
 
-        <button
-          type="button"
-          (click)="showPreviewAgain()"
-          class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
-        >
-          👁️ Preview
-        </button>
+        @if (showPreviewButton()) {
+          <button
+            type="button"
+            (click)="showPreviewAgain()"
+            class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
+          >
+            👁️ Preview
+          </button>
+        }
       </div>
     </div>
   `,
@@ -117,10 +137,17 @@ export class HangulWritingPadComponent
   private pronunciation = inject(HangulPronunciationService);
   private theme = inject(ThemeService);
   private shapeScoring = inject(HangulShapeScoringService);
+  private celebration = inject(HangulCelebrationService);
 
   preview = input('');
   audioSrc = input<string | undefined>();
   resetKey = input<string | undefined>();
+  initialPreviewVisible = input(true);
+  revealPreviewOnCheck = input(true);
+  showPreviewButton = input(true);
+  showSoundButton = input(true);
+
+  shapeChecked = output<HangulShapeScore>();
 
   @ViewChild('canvas', { static: true })
   canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -153,6 +180,7 @@ export class HangulWritingPadComponent
   ngAfterViewInit(): void {
     this.setupCanvas();
     this.viewReady = true;
+    this.showPreview.set(this.initialPreviewVisible());
 
     const canvas = this.canvasRef.nativeElement;
 
@@ -207,7 +235,7 @@ export class HangulWritingPadComponent
     });
   }
 
-  checkShape(): void {
+  async checkShape(): Promise<void> {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
 
@@ -219,6 +247,20 @@ export class HangulWritingPadComponent
     });
 
     this.shapeScore.set(score);
+    this.shapeChecked.emit(score);
+
+    if (this.revealPreviewOnCheck()) {
+      this.showPreviewAgain();
+    }
+
+    if (score.score >= 90) {
+      await this.celebration.celebrate({
+        intensity: 'strong',
+        count: 24,
+        playAudio: true,
+        audioSrc: DEFAULT_HANGUL_CELEBRATION_AUDIO_SRC,
+      });
+    }
   }
 
   showPreviewAgain(): void {
@@ -235,7 +277,7 @@ export class HangulWritingPadComponent
 
   private resetPad(): void {
     this.clear();
-    this.showPreview.set(true);
+    this.showPreview.set(this.initialPreviewVisible());
     this.drawing = false;
     this.lastPoint = undefined;
     this.activePointerId = undefined;

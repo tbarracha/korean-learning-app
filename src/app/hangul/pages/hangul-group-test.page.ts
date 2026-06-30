@@ -7,16 +7,20 @@ import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulItem } from '../data/hangul-types';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
 import { ThemeToggleButtonComponent } from '../../shared/theme/theme-toggle-button.component';
+import { HangulCelebrationOverlayComponent } from '../components/hangul-celebration-overlay.component';
+import { HangulCelebrationService } from '../services/hangul-celebration.service';
+import { HangulWritingPadComponent } from '../components/hangul-writing-pad.component';
+import { HangulShapeScore } from '../services/hangul-shape-scoring.service';
 
 type TestQuestionType =
   | 'hangul-to-romanization'
   | 'romanization-to-hangul'
   | 'audio-to-hangul'
-  | 'audio-to-romanization';
+  | 'audio-to-romanization'
+  | 'romanization-to-drawing'
+  | 'audio-to-drawing';
 
 type TestState = 'setup' | 'active' | 'finished';
-
-type ConfettiIntensity = 'minimal' | 'strong' | 'perfect';
 
 interface TestQuestion {
   id: string;
@@ -27,53 +31,26 @@ interface TestQuestion {
   item: HangulItem;
 }
 
-interface ConfettiPiece {
-  id: number;
-  left: number;
-  delay: number;
-  duration: number;
-  size: number;
-  rotation: number;
-  emoji: string;
-}
-
-const COMPLETION_AUDIO_SRC = '/tithuh-level-up-02-528919.mp3';
-
 const MIN_PASSING_SCORE_RATIO = 0.5;
 const STRONG_PASSING_SCORE_RATIO = 0.8;
 const PERFECT_SCORE_RATIO = 1;
 
+const DRAWING_PASSING_SCORE = 80;
+
 @Component({
   selector: 'app-hangul-group-test-page',
   standalone: true,
-  imports: [RouterLink, NgClass, ThemeToggleButtonComponent],
-  styles: [
-    `
-      @keyframes hangul-confetti-fall {
-        0% {
-          transform: translateY(-20vh) rotate(0deg);
-          opacity: 0;
-        }
-
-        10% {
-          opacity: 1;
-        }
-
-        100% {
-          transform: translateY(110vh) rotate(720deg);
-          opacity: 0;
-        }
-      }
-
-      .confetti-piece {
-        animation-name: hangul-confetti-fall;
-        animation-timing-function: linear;
-        animation-fill-mode: both;
-      }
-    `,
+  imports: [
+    RouterLink,
+    NgClass,
+    ThemeToggleButtonComponent,
+    HangulCelebrationOverlayComponent,
+    HangulWritingPadComponent,
   ],
   template: `
     <main class="min-h-dvh bg-base px-4 py-6 text-base-content">
+      <app-hangul-celebration-overlay />
+
       <section class="mx-auto max-w-md space-y-5">
         @if (group()) {
           <header class="flex items-center justify-between gap-3">
@@ -100,15 +77,39 @@ const PERFECT_SCORE_RATIO = 1;
               <div class="space-y-2">
                 <p class="text-sm font-medium text-primary">Test setup</p>
 
-                <h2 class="text-2xl font-bold">
-                  How many questions?
-                </h2>
+                <h2 class="text-2xl font-bold">How many questions?</h2>
 
                 <p class="text-sm text-base-content/70">
                   Questions are randomized and will not repeat inside the same
                   test.
                 </p>
               </div>
+
+              <button
+                type="button"
+                (click)="toggleWritingQuestions()"
+                class="flex w-full items-center justify-between rounded-2xl border border-base-300 bg-base-100 px-4 py-3 text-left shadow-sm transition active:scale-[0.98]"
+              >
+                <div>
+                  <p class="text-sm font-semibold text-base-content">
+                    Include writing questions
+                  </p>
+
+                  <p class="text-xs text-base-content/65">
+                    Add draw-the-Hangul questions to this test
+                  </p>
+                </div>
+
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-semibold"
+                  [class.bg-primary]="includeWritingQuestions()"
+                  [class.text-primary-content]="includeWritingQuestions()"
+                  [class.bg-base-200]="!includeWritingQuestions()"
+                  [class.text-base-content/75]="!includeWritingQuestions()"
+                >
+                  {{ includeWritingQuestions() ? 'On' : 'Off' }}
+                </span>
+              </button>
 
               <div class="grid grid-cols-3 gap-2">
                 @for (size of availableQuestionCounts(); track size) {
@@ -123,7 +124,9 @@ const PERFECT_SCORE_RATIO = 1;
                 }
               </div>
 
-              <div class="rounded-2xl bg-base-200 p-4 text-sm text-base-content/70">
+              <div
+                class="rounded-2xl bg-base-200 p-4 text-sm text-base-content/70"
+              >
                 <p>
                   Available unique questions:
                   <span class="font-semibold text-base-content">
@@ -195,19 +198,32 @@ const PERFECT_SCORE_RATIO = 1;
                 </div>
               </section>
 
-              <section class="grid gap-3">
-                @for (option of currentQuestion()!.options; track option) {
-                  <button
-                    type="button"
-                    (click)="selectAnswer(option)"
-                    [disabled]="selectedAnswer() !== undefined"
-                    class="rounded-2xl border p-4 text-left text-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed"
-                    [ngClass]="getOptionClass(option)"
-                  >
-                    {{ option }}
-                  </button>
-                }
-              </section>
+              @if (isDrawingQuestion(currentQuestion()!)) {
+                <app-hangul-writing-pad
+                  [resetKey]="currentQuestion()!.id"
+                  [preview]="currentQuestion()!.item.hangul"
+                  [audioSrc]="currentQuestion()!.item.audioSrc"
+                  [initialPreviewVisible]="false"
+                  [revealPreviewOnCheck]="false"
+                  [showPreviewButton]="false"
+                  [showSoundButton]="false"
+                  (shapeChecked)="handleDrawingScore($event)"
+                />
+              } @else {
+                <section class="grid gap-3">
+                  @for (option of currentQuestion()!.options; track option) {
+                    <button
+                      type="button"
+                      (click)="selectAnswer(option)"
+                      [disabled]="selectedAnswer() !== undefined"
+                      class="rounded-2xl border p-4 text-left text-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed"
+                      [ngClass]="getOptionClass(option)"
+                    >
+                      {{ option }}
+                    </button>
+                  }
+                </section>
+              }
 
               @if (selectedAnswer() !== undefined) {
                 <section class="space-y-3">
@@ -216,18 +232,26 @@ const PERFECT_SCORE_RATIO = 1;
                   >
                     <div class="flex items-start justify-between gap-3">
                       <div>
-                        @if (selectedAnswer() === currentQuestion()!.answer) {
-                          <p class="font-semibold text-success">
-                            Correct
-                          </p>
-                        } @else {
-                          <p class="font-semibold text-danger">
-                            Not quite
-                          </p>
+                        @if (isDrawingQuestion(currentQuestion()!)) {
+                          @if ((lastDrawingScore() ?? 0) >= DRAWING_PASSING_SCORE) {
+                            <p class="font-semibold text-success">Correct</p>
+                          } @else {
+                            <p class="font-semibold text-danger">Not quite</p>
+                          }
 
                           <p class="mt-1 text-sm text-base-content/70">
-                            Correct answer: {{ currentQuestion()!.answer }}
+                            Shape score: {{ lastDrawingScore() ?? 0 }}%
                           </p>
+                        } @else {
+                          @if (selectedAnswer() === currentQuestion()!.answer) {
+                            <p class="font-semibold text-success">Correct</p>
+                          } @else {
+                            <p class="font-semibold text-danger">Not quite</p>
+
+                            <p class="mt-1 text-sm text-base-content/70">
+                              Correct answer: {{ currentQuestion()!.answer }}
+                            </p>
+                          }
                         }
                       </div>
 
@@ -270,25 +294,6 @@ const PERFECT_SCORE_RATIO = 1;
             <section
               class="relative space-y-4 overflow-hidden rounded-2xl border border-base-300 bg-base-100 p-5 text-center shadow-sm"
             >
-              @if (shouldShowConfetti()) {
-                <div
-                  class="pointer-events-none fixed inset-0 z-50 overflow-hidden"
-                >
-                  @for (piece of confettiPieces; track piece.id) {
-                    <span
-                      class="confetti-piece absolute top-0"
-                      [style.left.%]="piece.left"
-                      [style.animation-delay.ms]="piece.delay"
-                      [style.animation-duration.ms]="piece.duration"
-                      [style.font-size.px]="piece.size"
-                      [style.transform]="'rotate(' + piece.rotation + 'deg)'"
-                    >
-                      {{ piece.emoji }}
-                    </span>
-                  }
-                </div>
-              }
-
               <div>
                 <p class="text-sm font-medium text-primary">Test complete</p>
 
@@ -328,7 +333,9 @@ const PERFECT_SCORE_RATIO = 1;
             </section>
           }
         } @else {
-          <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
+          <div
+            class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm"
+          >
             <p class="font-medium">Group not found.</p>
 
             <a
@@ -344,8 +351,11 @@ const PERFECT_SCORE_RATIO = 1;
   `,
 })
 export class HangulGroupTestPage {
+  protected readonly DRAWING_PASSING_SCORE = DRAWING_PASSING_SCORE;
+
   private route = inject(ActivatedRoute);
   private pronunciation = inject(HangulPronunciationService);
+  private celebration = inject(HangulCelebrationService);
 
   groups = [...HANGUL_GROUPS].sort((a, b) => a.order - b.order);
 
@@ -358,8 +368,8 @@ export class HangulGroupTestPage {
   selectedAnswer = signal<string | undefined>(undefined);
   correctCount = signal(0);
   answeredCount = signal(0);
-
-  confettiPieces: ConfettiPiece[] = [];
+  lastDrawingScore = signal<number | undefined>(undefined);
+  includeWritingQuestions = signal(false);
 
   group = computed(() => {
     const groupId = this.route.snapshot.paramMap.get('groupId');
@@ -373,7 +383,10 @@ export class HangulGroupTestPage {
       return [];
     }
 
-    return createAllPossibleQuestionsForGroup(group.items);
+    return createAllPossibleQuestionsForGroup(
+      group.items,
+      this.includeWritingQuestions(),
+    );
   });
 
   allPossibleQuestionCount = computed(() => {
@@ -406,13 +419,6 @@ export class HangulGroupTestPage {
     return this.correctCount() / total;
   });
 
-  shouldShowConfetti = computed(() => {
-    return (
-      this.testState() === 'finished' &&
-      this.scoreRatio() >= MIN_PASSING_SCORE_RATIO
-    );
-  });
-
   startTest(): void {
     const count = Math.min(
       this.selectedQuestionCount(),
@@ -421,32 +427,39 @@ export class HangulGroupTestPage {
 
     const questions = createRandomQuestionSet(this.allPossibleQuestions(), count);
 
+    this.celebration.clear();
     this.questions.set(questions);
     this.currentQuestionIndex.set(0);
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = [];
+    this.lastDrawingScore.set(undefined);
     this.testState.set('active');
   }
 
   resetToSetup(): void {
+    this.celebration.clear();
     this.questions.set([]);
     this.currentQuestionIndex.set(0);
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = [];
+    this.lastDrawingScore.set(undefined);
     this.testState.set('setup');
   }
 
   restartSameTest(): void {
+    this.celebration.clear();
     this.currentQuestionIndex.set(0);
     this.selectedAnswer.set(undefined);
     this.correctCount.set(0);
     this.answeredCount.set(0);
-    this.confettiPieces = [];
+    this.lastDrawingScore.set(undefined);
     this.testState.set('active');
+  }
+
+  toggleWritingQuestions(): void {
+    this.includeWritingQuestions.update((value) => !value);
   }
 
   async playCurrentQuestionAudio(): Promise<void> {
@@ -475,20 +488,32 @@ export class HangulGroupTestPage {
     }
   }
 
+  handleDrawingScore(score: HangulShapeScore): void {
+    const question = this.currentQuestion();
+
+    if (!question || this.selectedAnswer() !== undefined) {
+      return;
+    }
+
+    this.lastDrawingScore.set(score.score);
+    this.selectedAnswer.set(`drawing:${score.score}`);
+    this.answeredCount.update((count) => count + 1);
+
+    if (score.score >= DRAWING_PASSING_SCORE) {
+      this.correctCount.update((count) => count + 1);
+    }
+  }
+
   async goToNextQuestion(): Promise<void> {
     if (this.isLastQuestion()) {
-      this.refreshConfettiForScore();
       this.testState.set('finished');
-
-      if (this.scoreRatio() >= MIN_PASSING_SCORE_RATIO) {
-        await this.playCompletionAudio();
-      }
-
+      await this.celebrateTestResult();
       return;
     }
 
     this.currentQuestionIndex.update((index) => index + 1);
     this.selectedAnswer.set(undefined);
+    this.lastDrawingScore.set(undefined);
   }
 
   isLastQuestion(): boolean {
@@ -518,8 +543,13 @@ export class HangulGroupTestPage {
   isAudioQuestion(question: TestQuestion): boolean {
     return (
       question.type === 'audio-to-hangul' ||
-      question.type === 'audio-to-romanization'
+      question.type === 'audio-to-romanization' ||
+      question.type === 'audio-to-drawing'
     );
+  }
+
+  isDrawingQuestion(question: TestQuestion): boolean {
+    return isDrawingQuestionType(question.type);
   }
 
   getQuestionCountClass(size: number): string {
@@ -556,6 +586,10 @@ export class HangulGroupTestPage {
         return 'Listen and choose the Hangul';
       case 'audio-to-romanization':
         return 'Listen and choose the romanization';
+      case 'romanization-to-drawing':
+        return 'Draw the Hangul';
+      case 'audio-to-drawing':
+        return 'Listen and draw the Hangul';
     }
   }
 
@@ -584,25 +618,34 @@ export class HangulGroupTestPage {
     return 'This group needs more practice. Go slower and repeat it.';
   }
 
-  private refreshConfettiForScore(): void {
+  private async celebrateTestResult(): Promise<void> {
     const ratio = this.scoreRatio();
 
     if (ratio >= PERFECT_SCORE_RATIO) {
-      this.confettiPieces = createConfettiPieces(90, 'perfect');
+      await this.celebration.celebrate({
+        intensity: 'perfect',
+        count: 90,
+        playAudio: true,
+      });
       return;
     }
 
     if (ratio >= STRONG_PASSING_SCORE_RATIO) {
-      this.confettiPieces = createConfettiPieces(36, 'strong');
+      await this.celebration.celebrate({
+        intensity: 'strong',
+        count: 36,
+        playAudio: true,
+      });
       return;
     }
 
     if (ratio >= MIN_PASSING_SCORE_RATIO) {
-      this.confettiPieces = createConfettiPieces(3, 'minimal');
-      return;
+      await this.celebration.celebrate({
+        intensity: 'minimal',
+        count: 3,
+        playAudio: true,
+      });
     }
-
-    this.confettiPieces = [];
   }
 
   private async playQuestionAudio(question: TestQuestion): Promise<void> {
@@ -613,19 +656,12 @@ export class HangulGroupTestPage {
       rate: 0.8,
     });
   }
-
-  private async playCompletionAudio(): Promise<void> {
-    try {
-      const audio = new Audio(COMPLETION_AUDIO_SRC);
-      audio.currentTime = 0;
-      await audio.play();
-    } catch (error) {
-      console.warn('Failed to play completion audio.', error);
-    }
-  }
 }
 
-function createAllPossibleQuestionsForGroup(items: HangulItem[]): TestQuestion[] {
+function createAllPossibleQuestionsForGroup(
+  items: HangulItem[],
+  includeWritingQuestions: boolean,
+): TestQuestion[] {
   const questionTypes: TestQuestionType[] = [
     'hangul-to-romanization',
     'romanization-to-hangul',
@@ -633,11 +669,13 @@ function createAllPossibleQuestionsForGroup(items: HangulItem[]): TestQuestion[]
     'audio-to-romanization',
   ];
 
-  const questions = items.flatMap((item) => {
+  if (includeWritingQuestions) {
+    questionTypes.push('romanization-to-drawing', 'audio-to-drawing');
+  }
+
+  return items.flatMap((item) => {
     return questionTypes.map((type) => createQuestion(type, item, items));
   });
-
-  return questions;
 }
 
 function createRandomQuestionSet(
@@ -654,7 +692,9 @@ function createQuestion(
 ): TestQuestion {
   const answer = getAnswerForType(type, item);
   const prompt = getPromptForType(type, item);
-  const options = createOptions(type, item, allItems);
+  const options = isDrawingQuestionType(type)
+    ? []
+    : createOptions(type, item, allItems);
 
   return {
     id: `${item.id}-${type}`,
@@ -671,9 +711,11 @@ function getPromptForType(type: TestQuestionType, item: HangulItem): string {
     case 'hangul-to-romanization':
       return item.hangul;
     case 'romanization-to-hangul':
+    case 'romanization-to-drawing':
       return item.romanization;
     case 'audio-to-hangul':
     case 'audio-to-romanization':
+    case 'audio-to-drawing':
       return 'audio';
   }
 }
@@ -683,8 +725,9 @@ function getAnswerForType(type: TestQuestionType, item: HangulItem): string {
     case 'hangul-to-romanization':
       return item.romanization;
     case 'romanization-to-hangul':
-      return item.hangul;
     case 'audio-to-hangul':
+    case 'romanization-to-drawing':
+    case 'audio-to-drawing':
       return item.hangul;
     case 'audio-to-romanization':
       return item.romanization;
@@ -708,48 +751,8 @@ function createOptions(
   return shuffle([answer, ...wrongOptions]);
 }
 
-function createConfettiPieces(
-  count: number,
-  intensity: ConfettiIntensity = 'strong',
-): ConfettiPiece[] {
-  const emojisByIntensity: Record<ConfettiIntensity, string[]> = {
-    minimal: ['✨', '⭐'],
-    strong: ['🎉', '✨', '⭐', '🌟', '💫'],
-    perfect: ['💎', '🔷', '🔹', '🎉', '✨', '⭐', '🌟', '💫'],
-  };
-
-  const durationByIntensity: Record<ConfettiIntensity, [number, number]> = {
-    minimal: [1600, 2400],
-    strong: [1800, 3600],
-    perfect: [1800, 4600],
-  };
-
-  const sizeByIntensity: Record<ConfettiIntensity, [number, number]> = {
-    minimal: [18, 24],
-    strong: [18, 30],
-    perfect: [20, 38],
-  };
-
-  const [minDuration, maxDuration] = durationByIntensity[intensity];
-  const [minSize, maxSize] = sizeByIntensity[intensity];
-  const emojis = emojisByIntensity[intensity];
-
-  return Array.from({ length: count }, (_, index) => ({
-    id: index,
-    left: randomBetween(0, 100),
-    delay:
-      intensity === 'perfect'
-        ? randomBetween(0, 1200)
-        : randomBetween(0, 700),
-    duration: randomBetween(minDuration, maxDuration),
-    size: randomBetween(minSize, maxSize),
-    rotation: randomBetween(0, 360),
-    emoji: emojis[index % emojis.length],
-  }));
-}
-
-function randomBetween(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+function isDrawingQuestionType(type: TestQuestionType): boolean {
+  return type === 'romanization-to-drawing' || type === 'audio-to-drawing';
 }
 
 function shuffle<T>(items: T[]): T[] {
