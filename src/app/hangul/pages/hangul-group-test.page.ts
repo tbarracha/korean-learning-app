@@ -6,6 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulItem } from '../data/hangul-types';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
+import { ThemeToggleButtonComponent } from '../../shared/theme/theme-toggle-button.component';
 
 type TestQuestionType =
   | 'hangul-to-romanization'
@@ -45,7 +46,7 @@ const PERFECT_SCORE_RATIO = 1;
 @Component({
   selector: 'app-hangul-group-test-page',
   standalone: true,
-  imports: [RouterLink, NgClass],
+  imports: [RouterLink, NgClass, ThemeToggleButtonComponent],
   styles: [
     `
       @keyframes hangul-confetti-fall {
@@ -72,34 +73,38 @@ const PERFECT_SCORE_RATIO = 1;
     `,
   ],
   template: `
-    <main class="min-h-dvh bg-neutral-950 text-white px-4 py-6">
+    <main class="min-h-dvh bg-base px-4 py-6 text-base-content">
       <section class="mx-auto max-w-md space-y-5">
         @if (group()) {
-          <header class="flex items-center gap-3">
-            <a
-              [routerLink]="['/hangul/groups', group()!.id]"
-              class="shrink-0 text-sm text-sky-300"
-            >
-              ← Back
-            </a>
+          <header class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <a
+                [routerLink]="['/hangul/groups', group()!.id]"
+                class="shrink-0 text-sm font-medium text-primary"
+              >
+                ← Back
+              </a>
 
-            <h1 class="min-w-0 truncate text-lg font-semibold text-neutral-200">
-              {{ group()!.title }} Test
-            </h1>
+              <h1 class="min-w-0 truncate text-lg font-semibold text-base-content/85">
+                {{ group()!.title }} Test
+              </h1>
+            </div>
+
+            <app-theme-toggle-button />
           </header>
 
           @if (testState() === 'setup') {
             <section
-              class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5"
+              class="space-y-4 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm"
             >
               <div class="space-y-2">
-                <p class="text-sm text-sky-300">Test setup</p>
+                <p class="text-sm font-medium text-primary">Test setup</p>
 
                 <h2 class="text-2xl font-bold">
                   How many questions?
                 </h2>
 
-                <p class="text-sm text-neutral-400">
+                <p class="text-sm text-base-content/70">
                   Questions are randomized and will not repeat inside the same
                   test.
                 </p>
@@ -118,17 +123,17 @@ const PERFECT_SCORE_RATIO = 1;
                 }
               </div>
 
-              <div class="rounded-2xl bg-black/20 p-4 text-sm text-neutral-400">
+              <div class="rounded-2xl bg-base-200 p-4 text-sm text-base-content/70">
                 <p>
                   Available unique questions:
-                  <span class="font-semibold text-neutral-200">
+                  <span class="font-semibold text-base-content">
                     {{ allPossibleQuestionCount() }}
                   </span>
                 </p>
 
                 <p class="mt-1">
                   Selected:
-                  <span class="font-semibold text-neutral-200">
+                  <span class="font-semibold text-base-content">
                     {{ selectedQuestionCount() }}
                   </span>
                 </p>
@@ -137,7 +142,7 @@ const PERFECT_SCORE_RATIO = 1;
               <button
                 type="button"
                 (click)="startTest()"
-                class="w-full rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+                class="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-content transition active:scale-[0.98]"
               >
                 Start test
               </button>
@@ -147,39 +152,39 @@ const PERFECT_SCORE_RATIO = 1;
           @if (testState() === 'active') {
             @if (currentQuestion()) {
               <section
-                class="rounded-2xl border border-white/10 bg-white/5 p-4"
+                class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <p class="text-sm text-neutral-400">
+                  <p class="text-sm text-base-content/70">
                     Question {{ currentQuestionIndex() + 1 }} /
                     {{ questions().length }}
                   </p>
 
-                  <p class="text-sm text-neutral-400">
+                  <p class="text-sm text-base-content/70">
                     Score: {{ correctCount() }} / {{ answeredCount() }}
                   </p>
                 </div>
 
                 <div class="mt-4 space-y-3">
-                  <p class="text-sm text-sky-300">
+                  <p class="text-sm font-medium text-primary">
                     {{ getQuestionLabel(currentQuestion()!.type) }}
                   </p>
 
                   <div
-                    class="flex min-h-32 items-center justify-center rounded-2xl bg-black/30 px-4 py-6 text-center"
+                    class="flex min-h-32 items-center justify-center rounded-2xl bg-base-200 px-4 py-6 text-center"
                   >
                     @if (isAudioQuestion(currentQuestion()!)) {
                       <button
                         type="button"
                         (click)="playCurrentQuestionAudio()"
-                        class="flex flex-col items-center gap-2 rounded-2xl bg-sky-500 px-8 py-5 text-white active:scale-[0.98] transition"
+                        class="flex flex-col items-center gap-2 rounded-2xl bg-primary px-8 py-5 text-primary-content transition active:scale-[0.98]"
                       >
                         <span class="text-4xl">🔊</span>
                         <span class="text-sm font-semibold">Play audio</span>
                       </button>
                     } @else {
                       <p
-                        class="font-bold"
+                        class="font-bold text-base-content"
                         [class.text-7xl]="isHangulPrompt(currentQuestion()!)"
                         [class.text-4xl]="!isHangulPrompt(currentQuestion()!)"
                       >
@@ -196,7 +201,7 @@ const PERFECT_SCORE_RATIO = 1;
                     type="button"
                     (click)="selectAnswer(option)"
                     [disabled]="selectedAnswer() !== undefined"
-                    class="rounded-2xl border p-4 text-left text-lg font-semibold transition active:scale-[0.98]"
+                    class="rounded-2xl border p-4 text-left text-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed"
                     [ngClass]="getOptionClass(option)"
                   >
                     {{ option }}
@@ -207,20 +212,20 @@ const PERFECT_SCORE_RATIO = 1;
               @if (selectedAnswer() !== undefined) {
                 <section class="space-y-3">
                   <div
-                    class="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm"
                   >
                     <div class="flex items-start justify-between gap-3">
                       <div>
                         @if (selectedAnswer() === currentQuestion()!.answer) {
-                          <p class="font-semibold text-emerald-300">
+                          <p class="font-semibold text-success">
                             Correct
                           </p>
                         } @else {
-                          <p class="font-semibold text-red-300">
+                          <p class="font-semibold text-danger">
                             Not quite
                           </p>
 
-                          <p class="mt-1 text-sm text-neutral-400">
+                          <p class="mt-1 text-sm text-base-content/70">
                             Correct answer: {{ currentQuestion()!.answer }}
                           </p>
                         }
@@ -229,13 +234,13 @@ const PERFECT_SCORE_RATIO = 1;
                       <button
                         type="button"
                         (click)="playCurrentQuestionAudio()"
-                        class="shrink-0 rounded-xl bg-sky-500 px-3 py-2 text-xs font-semibold text-white active:scale-[0.98] transition"
+                        class="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-content transition active:scale-[0.98]"
                       >
                         🔊 Play
                       </button>
                     </div>
 
-                    <p class="mt-3 text-sm text-neutral-500">
+                    <p class="mt-3 text-sm text-base-content/55">
                       {{ currentQuestion()!.item.hangul }}
                       ·
                       {{ currentQuestion()!.item.romanization }}
@@ -248,7 +253,7 @@ const PERFECT_SCORE_RATIO = 1;
                   <button
                     type="button"
                     (click)="goToNextQuestion()"
-                    class="w-full rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+                    class="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-content transition active:scale-[0.98]"
                   >
                     @if (isLastQuestion()) {
                       Finish test
@@ -263,7 +268,7 @@ const PERFECT_SCORE_RATIO = 1;
 
           @if (testState() === 'finished') {
             <section
-              class="relative overflow-hidden space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5 text-center"
+              class="relative space-y-4 overflow-hidden rounded-2xl border border-base-300 bg-base-100 p-5 text-center shadow-sm"
             >
               @if (shouldShowConfetti()) {
                 <div
@@ -285,13 +290,13 @@ const PERFECT_SCORE_RATIO = 1;
               }
 
               <div>
-                <p class="text-sm text-sky-300">Test complete</p>
+                <p class="text-sm font-medium text-primary">Test complete</p>
 
                 <h2 class="mt-2 text-4xl font-bold">
                   {{ correctCount() }} / {{ questions().length }}
                 </h2>
 
-                <p class="mt-2 text-neutral-400">
+                <p class="mt-2 text-base-content/70">
                   {{ getResultMessage() }}
                 </p>
               </div>
@@ -300,7 +305,7 @@ const PERFECT_SCORE_RATIO = 1;
                 <button
                   type="button"
                   (click)="resetToSetup()"
-                  class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
+                  class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
                 >
                   New test
                 </button>
@@ -308,7 +313,7 @@ const PERFECT_SCORE_RATIO = 1;
                 <button
                   type="button"
                   (click)="restartSameTest()"
-                  class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
+                  class="rounded-2xl bg-base-200 py-3 text-sm font-medium text-base-content transition active:scale-[0.98]"
                 >
                   Retry same
                 </button>
@@ -316,19 +321,19 @@ const PERFECT_SCORE_RATIO = 1;
 
               <a
                 [routerLink]="['/hangul/groups', group()!.id]"
-                class="block rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+                class="block rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-content transition active:scale-[0.98]"
               >
                 Back to group
               </a>
             </section>
           }
         } @else {
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
             <p class="font-medium">Group not found.</p>
 
             <a
               routerLink="/hangul"
-              class="mt-2 inline-block text-sm text-sky-300"
+              class="mt-2 inline-block text-sm font-medium text-primary"
             >
               Go back to Hangul home
             </a>
@@ -519,26 +524,26 @@ export class HangulGroupTestPage {
 
   getQuestionCountClass(size: number): string {
     if (this.selectedQuestionCount() === size) {
-      return 'border-sky-400 bg-sky-500 text-white';
+      return 'border-primary bg-primary text-primary-content';
     }
 
-    return 'border-white/10 bg-white/5 text-neutral-200';
+    return 'border-base-300 bg-base-100 text-base-content';
   }
 
   getOptionClass(option: string): string {
     if (this.selectedAnswer() === undefined) {
-      return 'border-white/10 bg-white/5';
+      return 'border-base-300 bg-base-100 text-base-content';
     }
 
     if (this.isCorrectOption(option)) {
-      return 'border-emerald-400 bg-emerald-400/15 text-emerald-200';
+      return 'border-success bg-success/15 text-success';
     }
 
     if (this.isWrongSelectedOption(option)) {
-      return 'border-red-400 bg-red-400/15 text-red-200';
+      return 'border-danger bg-danger/15 text-danger';
     }
 
-    return 'opacity-60';
+    return 'border-base-300 bg-base-100 text-base-content opacity-60';
   }
 
   getQuestionLabel(type: TestQuestionType): string {

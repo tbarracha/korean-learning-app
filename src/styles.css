@@ -1,2 +1,106 @@
-/* You can add global styles to this file, and also import other style files */
+/* file: src/styles.css */
+
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+[data-theme="light"] {
+  --theme-base: #f8fafc;
+  --theme-base-100: #ffffff;
+  --theme-base-200: #eef2f7;
+  --theme-base-300: #d8e0ea;
+  --theme-base-content: #172033;
+
+  --theme-primary: #38bdf8;
+  --theme-primary-content: #082f49;
+
+  --theme-secondary: #6366f1;
+  --theme-secondary-content: #ffffff;
+
+  --theme-accent: #14b8a6;
+  --theme-accent-content: #042f2e;
+
+  --theme-info: #0ea5e9;
+  --theme-info-content: #ffffff;
+
+  --theme-warning: #f59e0b;
+  --theme-warning-content: #1f1300;
+
+  --theme-success: #22c55e;
+  --theme-success-content: #052e16;
+
+  --theme-danger: #ef4444;
+  --theme-danger-content: #ffffff;
+}
+
+.dark,
+[data-theme="dark"] {
+  --theme-base: #020617;
+  --theme-base-100: #0f172a;
+  --theme-base-200: #1e293b;
+  --theme-base-300: #334155;
+  --theme-base-content: #f8fafc;
+
+  --theme-primary: #38bdf8;
+  --theme-primary-content: #082f49;
+
+  --theme-secondary: #818cf8;
+  --theme-secondary-content: #111827;
+
+  --theme-accent: #2dd4bf;
+  --theme-accent-content: #042f2e;
+
+  --theme-info: #38bdf8;
+  --theme-info-content: #082f49;
+
+  --theme-warning: #fbbf24;
+  --theme-warning-content: #1f1300;
+
+  --theme-success: #4ade80;
+  --theme-success-content: #052e16;
+
+  --theme-danger: #f87171;
+  --theme-danger-content: #450a0a;
+}
+
+@theme inline {
+  --color-base: var(--theme-base);
+  --color-base-100: var(--theme-base-100);
+  --color-base-200: var(--theme-base-200);
+  --color-base-300: var(--theme-base-300);
+  --color-base-content: var(--theme-base-content);
+
+  --color-primary: var(--theme-primary);
+  --color-primary-content: var(--theme-primary-content);
+
+  --color-secondary: var(--theme-secondary);
+  --color-secondary-content: var(--theme-secondary-content);
+
+  --color-accent: var(--theme-accent);
+  --color-accent-content: var(--theme-accent-content);
+
+  --color-info: var(--theme-info);
+  --color-info-content: var(--theme-info-content);
+
+  --color-warning: var(--theme-warning);
+  --color-warning-content: var(--theme-warning-content);
+
+  --color-success: var(--theme-success);
+  --color-success-content: var(--theme-success-content);
+
+  --color-danger: var(--theme-danger);
+  --color-danger-content: var(--theme-danger-content);
+}
+
+html {
+  background: var(--theme-base);
+  color: var(--theme-base-content);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--theme-base);
+  color: var(--theme-base-content);
+}

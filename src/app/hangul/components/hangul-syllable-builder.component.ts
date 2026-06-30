@@ -7,27 +7,29 @@ import { composeHangul } from '../utils/compose-hangul';
   selector: 'app-hangul-syllable-builder',
   standalone: true,
   template: `
-    <section class="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-4">
+    <section class="space-y-5 rounded-3xl border border-base-300 bg-base-100 p-4 shadow-sm">
       <header>
-        <h2 class="text-lg font-semibold">
+        <h2 class="text-lg font-semibold text-base-content">
           Build a syllable
         </h2>
-        <p class="text-sm text-neutral-400">
+        <p class="text-sm text-base-content/70">
           Pick a consonant and a vowel.
         </p>
       </header>
 
       <div class="space-y-3">
-        <p class="text-sm text-neutral-400">Consonant</p>
+        <p class="text-sm text-base-content/70">Consonant</p>
 
         <div class="grid grid-cols-5 gap-2">
           @for (consonant of consonants; track consonant) {
             <button
               type="button"
               (click)="selectedConsonant.set(consonant)"
-              class="rounded-xl py-3 text-xl"
-              [class.bg-sky-500]="selectedConsonant() === consonant"
-              [class.bg-white/10]="selectedConsonant() !== consonant"
+              class="rounded-xl py-3 text-xl font-semibold transition active:scale-[0.98]"
+              [class.bg-primary]="selectedConsonant() === consonant"
+              [class.text-primary-content]="selectedConsonant() === consonant"
+              [class.bg-base-200]="selectedConsonant() !== consonant"
+              [class.text-base-content]="selectedConsonant() !== consonant"
             >
               {{ consonant }}
             </button>
@@ -36,16 +38,18 @@ import { composeHangul } from '../utils/compose-hangul';
       </div>
 
       <div class="space-y-3">
-        <p class="text-sm text-neutral-400">Vowel</p>
+        <p class="text-sm text-base-content/70">Vowel</p>
 
         <div class="grid grid-cols-5 gap-2">
           @for (vowel of vowels; track vowel) {
             <button
               type="button"
               (click)="selectedVowel.set(vowel)"
-              class="rounded-xl py-3 text-xl"
-              [class.bg-sky-500]="selectedVowel() === vowel"
-              [class.bg-white/10]="selectedVowel() !== vowel"
+              class="rounded-xl py-3 text-xl font-semibold transition active:scale-[0.98]"
+              [class.bg-primary]="selectedVowel() === vowel"
+              [class.text-primary-content]="selectedVowel() === vowel"
+              [class.bg-base-200]="selectedVowel() !== vowel"
+              [class.text-base-content]="selectedVowel() !== vowel"
             >
               {{ vowel }}
             </button>
@@ -53,12 +57,12 @@ import { composeHangul } from '../utils/compose-hangul';
         </div>
       </div>
 
-      <div class="rounded-2xl bg-black/30 p-5 text-center">
-        <div class="text-sm text-neutral-400">
+      <div class="rounded-2xl bg-base-200 p-5 text-center">
+        <div class="text-sm text-base-content/70">
           Result
         </div>
 
-        <div class="mt-2 text-7xl font-bold">
+        <div class="mt-2 text-7xl font-bold text-base-content">
           {{ result() ?? '—' }}
         </div>
       </div>

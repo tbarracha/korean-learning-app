@@ -6,29 +6,34 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulWritingPadComponent } from '../components/hangul-writing-pad.component';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
+import { ThemeToggleButtonComponent } from '../../shared/theme/theme-toggle-button.component';
 
 @Component({
   selector: 'app-hangul-practice-page',
   standalone: true,
-  imports: [RouterLink, HangulWritingPadComponent],
+  imports: [RouterLink, HangulWritingPadComponent, ThemeToggleButtonComponent],
   template: `
-    <main class="min-h-dvh bg-neutral-950 text-white px-4 py-6">
+    <main class="min-h-dvh bg-base px-4 py-6 text-base-content">
       <section class="mx-auto max-w-md space-y-5">
         @if (item() && group()) {
-          <header class="flex items-center gap-3">
-            <a
-              [routerLink]="['/hangul/groups', group()!.id]"
-              class="shrink-0 text-sm text-sky-300"
-            >
-              ← Back
-            </a>
+          <header class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <a
+                [routerLink]="['/hangul/groups', group()!.id]"
+                class="shrink-0 text-sm font-medium text-primary"
+              >
+                ← Back
+              </a>
 
-            <h1 class="min-w-0 truncate text-lg font-semibold text-neutral-200">
-              {{ group()!.title }}
-            </h1>
+              <h1 class="min-w-0 truncate text-lg font-semibold text-base-content/85">
+                {{ group()!.title }}
+              </h1>
+            </div>
+
+            <app-theme-toggle-button />
           </header>
 
-          <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <section class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
             <div class="flex items-start justify-between gap-4">
               <div class="space-y-1">
                 <h2 class="text-3xl font-bold">
@@ -36,14 +41,14 @@ import { HangulPronunciationService } from '../services/hangul-pronunciation.ser
                 </h2>
 
                 @if (item()!.similarSound) {
-                  <p class="text-sm text-neutral-400">
+                  <p class="text-sm text-base-content/70">
                     {{ item()!.similarSound }}
                   </p>
                 }
               </div>
 
               <span
-                class="rounded-full bg-white/10 px-2.5 py-1 text-xs text-neutral-300"
+                class="rounded-full bg-base-200 px-2.5 py-1 text-xs text-base-content/75"
               >
                 {{ item()!.kind }}
               </span>
@@ -54,7 +59,7 @@ import { HangulPronunciationService } from '../services/hangul-pronunciation.ser
             <div class="flex items-center justify-between gap-3">
               <h2 class="font-semibold">Try writing it</h2>
 
-              <p class="text-right text-sm text-neutral-500">
+              <p class="text-right text-sm text-base-content/55">
                 {{ currentItemPosition() }} / {{ group()!.items.length }}
               </p>
             </div>
@@ -74,7 +79,7 @@ import { HangulPronunciationService } from '../services/hangul-pronunciation.ser
                   group()!.id,
                   nextItem()!.id
                 ]"
-                class="block rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+                class="block rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
               >
                 Next: {{ nextItem()!.romanization }}
               </a>
@@ -86,7 +91,7 @@ import { HangulPronunciationService } from '../services/hangul-pronunciation.ser
                     group()!.id,
                     firstItem()!.id
                   ]"
-                  class="rounded-2xl bg-white/10 py-3 text-center text-sm font-medium active:scale-[0.98] transition"
+                  class="rounded-2xl bg-base-200 py-3 text-center text-sm font-medium text-base-content transition active:scale-[0.98]"
                 >
                   Restart
                 </a>
@@ -98,32 +103,32 @@ import { HangulPronunciationService } from '../services/hangul-pronunciation.ser
                       nextGroup()!.id,
                       nextGroup()!.items[0].id
                     ]"
-                    class="rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+                    class="rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
                   >
                     Next group
                   </a>
                 } @else {
                   <a
                     routerLink="/hangul"
-                    class="rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+                    class="rounded-2xl bg-primary py-3 text-center text-sm font-semibold text-primary-content transition active:scale-[0.98]"
                   >
                     Finish
                   </a>
                 }
               </div>
 
-              <p class="text-center text-xs text-neutral-500">
+              <p class="text-center text-xs text-base-content/55">
                 You reached the end of this group.
               </p>
             }
           </section>
         } @else {
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
             <p class="font-medium">Item not found.</p>
 
             <a
               routerLink="/hangul"
-              class="mt-2 inline-block text-sm text-sky-300"
+              class="mt-2 inline-block text-sm font-medium text-primary"
             >
               Go back to Hangul home
             </a>
