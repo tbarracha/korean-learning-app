@@ -7,9 +7,16 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    
     "hangul:audio": "npm --prefix tools/hangul-audio install && npm --prefix tools/hangul-audio run generate",
     "hangul:audio:clear": "tsx scripts/clear-hangul-audio.ts",
-    "hangul:audio:force": "npm run hangul:audio:clear && npm run hangul:audio"
+    "hangul:audio:force": "npm run hangul:audio:clear && npm run hangul:audio",
+
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:android:init": "tauri android init",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build"
   },
   "private": true,
   "dependencies": {
@@ -32,6 +39,7 @@
     "@angular/build": "^22.0.4",
     "@angular/cli": "^22.0.4",
     "@angular/compiler-cli": "^22.0.4",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^26.0.1",
     "jasmine-core": "~5.4.0",

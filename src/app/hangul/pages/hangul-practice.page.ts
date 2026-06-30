@@ -1,6 +1,7 @@
 // file: src/app/hangul/pages/hangul-practice.page.ts
 
 import { Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulWritingPadComponent } from '../components/hangul-writing-pad.component';
@@ -53,14 +54,67 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
               <h2 class="font-semibold">Try writing it</h2>
 
               <p class="text-right text-sm text-neutral-500">
-                Preview disappears after first stroke
+                {{ currentItemPosition() }} / {{ group()!.items.length }}
               </p>
             </div>
 
             <app-hangul-writing-pad
+              [resetKey]="item()!.id"
               [preview]="item()!.hangul"
               [audioSrc]="item()!.audioSrc"
             />
+          </section>
+
+          <section class="space-y-3">
+            @if (nextItem()) {
+              <a
+                [routerLink]="[
+                  '/hangul/practice',
+                  group()!.id,
+                  nextItem()!.id
+                ]"
+                class="block rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+              >
+                Next: {{ nextItem()!.romanization }}
+              </a>
+            } @else {
+              <div class="grid grid-cols-2 gap-2">
+                <a
+                  [routerLink]="[
+                    '/hangul/practice',
+                    group()!.id,
+                    firstItem()!.id
+                  ]"
+                  class="rounded-2xl bg-white/10 py-3 text-center text-sm font-medium active:scale-[0.98] transition"
+                >
+                  Restart
+                </a>
+
+                @if (nextGroup() && nextGroup()!.items.length > 0) {
+                  <a
+                    [routerLink]="[
+                      '/hangul/practice',
+                      nextGroup()!.id,
+                      nextGroup()!.items[0].id
+                    ]"
+                    class="rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+                  >
+                    Next group
+                  </a>
+                } @else {
+                  <a
+                    routerLink="/hangul"
+                    class="rounded-2xl bg-sky-500 py-3 text-center text-sm font-semibold text-white active:scale-[0.98] transition"
+                  >
+                    Finish
+                  </a>
+                }
+              </div>
+
+              <p class="text-center text-xs text-neutral-500">
+                You reached the end of this group.
+              </p>
+            }
           </section>
         } @else {
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -81,13 +135,76 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
 export class HangulPracticePage {
   private route = inject(ActivatedRoute);
 
+  private paramMap = toSignal(this.route.paramMap, {
+    initialValue: this.route.snapshot.paramMap,
+  });
+
+  groups = [...HANGUL_GROUPS].sort((a, b) => a.order - b.order);
+
+  groupId = computed(() => {
+    return this.paramMap().get('groupId');
+  });
+
+  itemId = computed(() => {
+    return this.paramMap().get('itemId');
+  });
+
   group = computed(() => {
-    const groupId = this.route.snapshot.paramMap.get('groupId');
-    return HANGUL_GROUPS.find((group) => group.id === groupId);
+    const groupId = this.groupId();
+    return this.groups.find((group) => group.id === groupId);
   });
 
   item = computed(() => {
-    const itemId = this.route.snapshot.paramMap.get('itemId');
+    const itemId = this.itemId();
     return this.group()?.items.find((item) => item.id === itemId);
+  });
+
+  currentItemIndex = computed(() => {
+    const group = this.group();
+    const item = this.item();
+
+    if (!group || !item) {
+      return -1;
+    }
+
+    return group.items.findIndex((candidate) => candidate.id === item.id);
+  });
+
+  currentItemPosition = computed(() => {
+    const index = this.currentItemIndex();
+    return index < 0 ? 0 : index + 1;
+  });
+
+  firstItem = computed(() => {
+    return this.group()?.items[0];
+  });
+
+  nextItem = computed(() => {
+    const group = this.group();
+    const currentIndex = this.currentItemIndex();
+
+    if (!group || currentIndex < 0) {
+      return undefined;
+    }
+
+    return group.items[currentIndex + 1];
+  });
+
+  nextGroup = computed(() => {
+    const group = this.group();
+
+    if (!group) {
+      return undefined;
+    }
+
+    const currentGroupIndex = this.groups.findIndex(
+      (candidate) => candidate.id === group.id,
+    );
+
+    if (currentGroupIndex < 0) {
+      return undefined;
+    }
+
+    return this.groups[currentGroupIndex + 1];
   });
 }

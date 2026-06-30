@@ -6,8 +6,10 @@ import {
   ElementRef,
   inject,
   input,
+  OnChanges,
   OnDestroy,
   signal,
+  SimpleChanges,
   ViewChild,
 } from '@angular/core';
 import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
@@ -80,11 +82,14 @@ interface DrawingPoint {
     </div>
   `,
 })
-export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
+export class HangulWritingPadComponent
+  implements AfterViewInit, OnChanges, OnDestroy
+{
   private pronunciation = inject(HangulPronunciationService);
 
   preview = input('');
   audioSrc = input<string | undefined>();
+  resetKey = input<string | undefined>();
 
   @ViewChild('canvas', { static: true })
   canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -96,9 +101,11 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
   private previewTimeoutId: number | undefined;
   private lastPoint: DrawingPoint | undefined;
   private activePointerId: number | undefined;
+  private viewReady = false;
 
   ngAfterViewInit(): void {
     this.setupCanvas();
+    this.viewReady = true;
 
     const canvas = this.canvasRef.nativeElement;
 
@@ -107,6 +114,14 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
     canvas.addEventListener('pointerup', this.stopDrawing);
     canvas.addEventListener('pointercancel', this.stopDrawing);
     canvas.addEventListener('pointerleave', this.stopDrawing);
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['resetKey'] || !this.viewReady) {
+      return;
+    }
+
+    this.resetPad();
   }
 
   ngOnDestroy(): void {
@@ -124,6 +139,10 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
   }
 
   clear(): void {
+    if (!this.ctx) {
+      return;
+    }
+
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
 
@@ -150,6 +169,19 @@ export class HangulWritingPadComponent implements AfterViewInit, OnDestroy {
     this.previewTimeoutId = window.setTimeout(() => {
       this.showPreview.set(false);
     }, 1200);
+  }
+
+  private resetPad(): void {
+    this.clear();
+    this.showPreview.set(true);
+    this.drawing = false;
+    this.lastPoint = undefined;
+    this.activePointerId = undefined;
+
+    if (this.previewTimeoutId !== undefined) {
+      window.clearTimeout(this.previewTimeoutId);
+      this.previewTimeoutId = undefined;
+    }
   }
 
   private setupCanvas(): void {
