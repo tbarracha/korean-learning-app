@@ -3,13 +3,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
+import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
+import { NgClass } from '@angular/common';
 import { HangulItem } from '../data/hangul-types';
 
 type TestQuestionType =
   | 'hangul-to-romanization'
   | 'romanization-to-hangul'
-  | 'pronunciation-to-hangul'
-  | 'pronunciation-to-romanization';
+  | 'audio-to-hangul'
+  | 'audio-to-romanization';
+
+type TestState = 'setup' | 'active' | 'finished';
 
 interface TestQuestion {
   id: string;
@@ -20,10 +24,48 @@ interface TestQuestion {
   item: HangulItem;
 }
 
+interface ConfettiPiece {
+  id: number;
+  left: number;
+  delay: number;
+  duration: number;
+  size: number;
+  rotation: number;
+  emoji: string;
+}
+
+const COMPLETION_AUDIO_SRC = '/freesound_community-tada-fanfare-a-6313.mp3';
+const PASSING_SCORE_RATIO = 0.6;
+
 @Component({
   selector: 'app-hangul-group-test-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, NgClass],
+  styles: [
+    `
+      @keyframes hangul-confetti-fall {
+        0% {
+          transform: translateY(-20vh) rotate(0deg);
+          opacity: 0;
+        }
+
+        10% {
+          opacity: 1;
+        }
+
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+
+      .confetti-piece {
+        animation-name: hangul-confetti-fall;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+      }
+    `,
+  ],
   template: `
     <main class="min-h-dvh bg-neutral-950 text-white px-4 py-6">
       <section class="mx-auto max-w-md space-y-5">
@@ -41,12 +83,74 @@ interface TestQuestion {
             </h1>
           </header>
 
-          @if (!isFinished()) {
+          @if (testState() === 'setup') {
+            <section
+              class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5"
+            >
+              <div class="space-y-2">
+                <p class="text-sm text-sky-300">Test setup</p>
+
+                <h2 class="text-2xl font-bold">How many questions?</h2>
+
+                <p class="text-sm text-neutral-400">
+                  Questions are randomized and will not repeat inside the same
+                  test.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2">
+                @for (size of availableQuestionCounts(); track size) {
+                  <button
+                    type="button"
+                    (click)="selectedQuestionCount.set(size)"
+                    class="rounded-2xl border py-4 text-center text-lg font-semibold transition active:scale-[0.98]"
+                    [class.border-sky-400]="selectedQuestionCount() === size"
+                    [class.bg-sky-500]="selectedQuestionCount() === size"
+                    [class.text-white]="selectedQuestionCount() === size"
+                    [class.border-white/10]="selectedQuestionCount() !== size"
+                    [class.bg-white/5]="selectedQuestionCount() !== size"
+                    [class.text-neutral-200]="selectedQuestionCount() !== size"
+                  >
+                    {{ size }}
+                  </button>
+                }
+              </div>
+
+              <div class="rounded-2xl bg-black/20 p-4 text-sm text-neutral-400">
+                <p>
+                  Available unique questions:
+                  <span class="font-semibold text-neutral-200">
+                    {{ allPossibleQuestionCount() }}
+                  </span>
+                </p>
+
+                <p class="mt-1">
+                  Selected:
+                  <span class="font-semibold text-neutral-200">
+                    {{ selectedQuestionCount() }}
+                  </span>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                (click)="startTest()"
+                class="w-full rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+              >
+                Start test
+              </button>
+            </section>
+          }
+
+          @if (testState() === 'active') {
             @if (currentQuestion()) {
-              <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <section
+                class="rounded-2xl border border-white/10 bg-white/5 p-4"
+              >
                 <div class="flex items-center justify-between gap-3">
                   <p class="text-sm text-neutral-400">
-                    Question {{ currentQuestionIndex() + 1 }} / {{ questions().length }}
+                    Question {{ currentQuestionIndex() + 1 }} /
+                    {{ questions().length }}
                   </p>
 
                   <p class="text-sm text-neutral-400">
@@ -62,13 +166,24 @@ interface TestQuestion {
                   <div
                     class="flex min-h-32 items-center justify-center rounded-2xl bg-black/30 px-4 py-6 text-center"
                   >
-                    <p
-                      class="font-bold"
-                      [class.text-7xl]="isHangulPrompt(currentQuestion()!)"
-                      [class.text-4xl]="!isHangulPrompt(currentQuestion()!)"
-                    >
-                      {{ currentQuestion()!.prompt }}
-                    </p>
+                    @if (isAudioQuestion(currentQuestion()!)) {
+                      <button
+                        type="button"
+                        (click)="playCurrentQuestionAudio()"
+                        class="flex flex-col items-center gap-2 rounded-2xl bg-sky-500 px-8 py-5 text-white active:scale-[0.98] transition"
+                      >
+                        <span class="text-4xl">🔊</span>
+                        <span class="text-sm font-semibold">Play audio</span>
+                      </button>
+                    } @else {
+                      <p
+                        class="font-bold"
+                        [class.text-7xl]="isHangulPrompt(currentQuestion()!)"
+                        [class.text-4xl]="!isHangulPrompt(currentQuestion()!)"
+                      >
+                        {{ currentQuestion()!.prompt }}
+                      </p>
+                    }
                   </div>
                 </div>
               </section>
@@ -80,15 +195,7 @@ interface TestQuestion {
                     (click)="selectAnswer(option)"
                     [disabled]="selectedAnswer() !== undefined"
                     class="rounded-2xl border p-4 text-left text-lg font-semibold transition active:scale-[0.98]"
-                    [class.border-white/10]="selectedAnswer() === undefined"
-                    [class.bg-white/5]="selectedAnswer() === undefined"
-                    [class.border-emerald-400]="isCorrectOption(option)"
-                    [class.bg-emerald-400/15]="isCorrectOption(option)"
-                    [class.text-emerald-200]="isCorrectOption(option)"
-                    [class.border-red-400]="isWrongSelectedOption(option)"
-                    [class.bg-red-400/15]="isWrongSelectedOption(option)"
-                    [class.text-red-200]="isWrongSelectedOption(option)"
-                    [class.opacity-60]="selectedAnswer() !== undefined && !isCorrectOption(option) && !isWrongSelectedOption(option)"
+                    [ngClass]="getOptionClass(option)"
                   >
                     {{ option }}
                   </button>
@@ -97,20 +204,30 @@ interface TestQuestion {
 
               @if (selectedAnswer() !== undefined) {
                 <section class="space-y-3">
-                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    @if (selectedAnswer() === currentQuestion()!.answer) {
-                      <p class="font-semibold text-emerald-300">
-                        Correct
-                      </p>
-                    } @else {
-                      <p class="font-semibold text-red-300">
-                        Not quite
-                      </p>
+                  <div
+                    class="rounded-2xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        @if (selectedAnswer() === currentQuestion()!.answer) {
+                          <p class="font-semibold text-emerald-300">Correct</p>
+                        } @else {
+                          <p class="font-semibold text-red-300">Not quite</p>
 
-                      <p class="mt-1 text-sm text-neutral-400">
-                        Correct answer: {{ currentQuestion()!.answer }}
-                      </p>
-                    }
+                          <p class="mt-1 text-sm text-neutral-400">
+                            Correct answer: {{ currentQuestion()!.answer }}
+                          </p>
+                        }
+                      </div>
+
+                      <button
+                        type="button"
+                        (click)="playCurrentQuestionAudio()"
+                        class="shrink-0 rounded-xl bg-sky-500 px-3 py-2 text-xs font-semibold text-white active:scale-[0.98] transition"
+                      >
+                        🔊 Play
+                      </button>
+                    </div>
 
                     <p class="mt-3 text-sm text-neutral-500">
                       {{ currentQuestion()!.item.hangul }}
@@ -136,8 +253,31 @@ interface TestQuestion {
                 </section>
               }
             }
-          } @else {
-            <section class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+          }
+
+          @if (testState() === 'finished') {
+            <section
+              class="relative overflow-hidden space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5 text-center"
+            >
+              @if (shouldShowConfetti()) {
+                <div
+                  class="pointer-events-none fixed inset-0 z-50 overflow-hidden"
+                >
+                  @for (piece of confettiPieces; track piece.id) {
+                    <span
+                      class="confetti-piece absolute top-0"
+                      [style.left.%]="piece.left"
+                      [style.animation-delay.ms]="piece.delay"
+                      [style.animation-duration.ms]="piece.duration"
+                      [style.font-size.px]="piece.size"
+                      [style.transform]="'rotate(' + piece.rotation + 'deg)'"
+                    >
+                      {{ piece.emoji }}
+                    </span>
+                  }
+                </div>
+              }
+
               <div>
                 <p class="text-sm text-sky-300">Test complete</p>
 
@@ -153,19 +293,27 @@ interface TestQuestion {
               <div class="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  (click)="restartTest()"
+                  (click)="resetToSetup()"
                   class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
                 >
-                  Restart
+                  New test
                 </button>
 
-                <a
-                  [routerLink]="['/hangul/groups', group()!.id]"
-                  class="rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+                <button
+                  type="button"
+                  (click)="restartSameTest()"
+                  class="rounded-2xl bg-white/10 py-3 text-sm font-medium active:scale-[0.98] transition"
                 >
-                  Back to group
-                </a>
+                  Retry same
+                </button>
               </div>
+
+              <a
+                [routerLink]="['/hangul/groups', group()!.id]"
+                class="block rounded-2xl bg-sky-500 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
+              >
+                Back to group
+              </a>
             </section>
           }
         } @else {
@@ -186,35 +334,140 @@ interface TestQuestion {
 })
 export class HangulGroupTestPage {
   private route = inject(ActivatedRoute);
+  private pronunciation = inject(HangulPronunciationService);
 
   groups = [...HANGUL_GROUPS].sort((a, b) => a.order - b.order);
+
+  testState = signal<TestState>('setup');
+
+  selectedQuestionCount = signal(10);
+  questions = signal<TestQuestion[]>([]);
+
+  currentQuestionIndex = signal(0);
+  selectedAnswer = signal<string | undefined>(undefined);
+  correctCount = signal(0);
+  answeredCount = signal(0);
+
+  confettiPieces: ConfettiPiece[] = createConfettiPieces(36);
 
   group = computed(() => {
     const groupId = this.route.snapshot.paramMap.get('groupId');
     return this.groups.find((group) => group.id === groupId);
   });
 
-  questions = computed(() => {
+  allPossibleQuestions = computed(() => {
     const group = this.group();
 
     if (!group) {
       return [];
     }
 
-    return createQuestionsForGroup(group.items);
+    return createAllPossibleQuestionsForGroup(group.items);
   });
 
-  currentQuestionIndex = signal(0);
-  selectedAnswer = signal<string | undefined>(undefined);
-  correctCount = signal(0);
-  answeredCount = signal(0);
-  isFinished = signal(false);
+  allPossibleQuestionCount = computed(() => {
+    return this.allPossibleQuestions().length;
+  });
+
+  availableQuestionCounts = computed(() => {
+    const max = this.allPossibleQuestionCount();
+    const wantedCounts = [10, 15, 20];
+    const available = wantedCounts.filter((count) => count <= max);
+
+    if (available.length > 0) {
+      return available;
+    }
+
+    return max > 0 ? [max] : [];
+  });
 
   currentQuestion = computed(() => {
     return this.questions()[this.currentQuestionIndex()];
   });
 
-  selectAnswer(option: string): void {
+  scoreRatio = computed(() => {
+    const total = this.questions().length;
+
+    if (total === 0) {
+      return 0;
+    }
+
+    return this.correctCount() / total;
+  });
+
+  shouldShowConfetti = computed(() => {
+    return (
+      this.testState() === 'finished' &&
+      this.scoreRatio() >= PASSING_SCORE_RATIO
+    );
+  });
+
+  getOptionClass(option: string): string {
+    if (this.selectedAnswer() === undefined) {
+      return 'border-white/10 bg-white/5';
+    }
+
+    if (this.isCorrectOption(option)) {
+      return 'border-emerald-400 bg-emerald-400/15 text-emerald-200';
+    }
+
+    if (this.isWrongSelectedOption(option)) {
+      return 'border-red-400 bg-red-400/15 text-red-200';
+    }
+
+    return 'opacity-60';
+  }
+
+  startTest(): void {
+    const count = Math.min(
+      this.selectedQuestionCount(),
+      this.allPossibleQuestionCount(),
+    );
+
+    const questions = createRandomQuestionSet(
+      this.allPossibleQuestions(),
+      count,
+    );
+
+    this.questions.set(questions);
+    this.currentQuestionIndex.set(0);
+    this.selectedAnswer.set(undefined);
+    this.correctCount.set(0);
+    this.answeredCount.set(0);
+    this.confettiPieces = createConfettiPieces(36);
+    this.testState.set('active');
+  }
+
+  resetToSetup(): void {
+    this.questions.set([]);
+    this.currentQuestionIndex.set(0);
+    this.selectedAnswer.set(undefined);
+    this.correctCount.set(0);
+    this.answeredCount.set(0);
+    this.confettiPieces = createConfettiPieces(36);
+    this.testState.set('setup');
+  }
+
+  restartSameTest(): void {
+    this.currentQuestionIndex.set(0);
+    this.selectedAnswer.set(undefined);
+    this.correctCount.set(0);
+    this.answeredCount.set(0);
+    this.confettiPieces = createConfettiPieces(36);
+    this.testState.set('active');
+  }
+
+  async playCurrentQuestionAudio(): Promise<void> {
+    const question = this.currentQuestion();
+
+    if (!question) {
+      return;
+    }
+
+    await this.playQuestionAudio(question);
+  }
+
+  async selectAnswer(option: string): Promise<void> {
     const question = this.currentQuestion();
 
     if (!question || this.selectedAnswer() !== undefined) {
@@ -226,25 +479,23 @@ export class HangulGroupTestPage {
 
     if (option === question.answer) {
       this.correctCount.update((count) => count + 1);
+      await this.playQuestionAudio(question);
     }
   }
 
-  goToNextQuestion(): void {
+  async goToNextQuestion(): Promise<void> {
     if (this.isLastQuestion()) {
-      this.isFinished.set(true);
+      this.testState.set('finished');
+
+      if (this.scoreRatio() >= PASSING_SCORE_RATIO) {
+        await this.playCompletionAudio();
+      }
+
       return;
     }
 
     this.currentQuestionIndex.update((index) => index + 1);
     this.selectedAnswer.set(undefined);
-  }
-
-  restartTest(): void {
-    this.currentQuestionIndex.set(0);
-    this.selectedAnswer.set(undefined);
-    this.correctCount.set(0);
-    this.answeredCount.set(0);
-    this.isFinished.set(false);
   }
 
   isLastQuestion(): boolean {
@@ -271,16 +522,23 @@ export class HangulGroupTestPage {
     return question.type === 'hangul-to-romanization';
   }
 
+  isAudioQuestion(question: TestQuestion): boolean {
+    return (
+      question.type === 'audio-to-hangul' ||
+      question.type === 'audio-to-romanization'
+    );
+  }
+
   getQuestionLabel(type: TestQuestionType): string {
     switch (type) {
       case 'hangul-to-romanization':
         return 'Choose the romanization';
       case 'romanization-to-hangul':
         return 'Choose the Hangul';
-      case 'pronunciation-to-hangul':
-        return 'Choose the Hangul from the sound hint';
-      case 'pronunciation-to-romanization':
-        return 'Choose the romanization from the sound hint';
+      case 'audio-to-hangul':
+        return 'Listen and choose the Hangul';
+      case 'audio-to-romanization':
+        return 'Listen and choose the romanization';
     }
   }
 
@@ -298,8 +556,8 @@ export class HangulGroupTestPage {
       return 'Perfect. You know this group well.';
     }
 
-    if (ratio >= 0.8) {
-      return 'Good work. A quick review should lock this in.';
+    if (ratio >= PASSING_SCORE_RATIO) {
+      return 'Great work. You passed this group strongly.';
     }
 
     if (ratio >= 0.5) {
@@ -308,21 +566,49 @@ export class HangulGroupTestPage {
 
     return 'This group needs more practice. Go slower and repeat it.';
   }
+
+  private async playQuestionAudio(question: TestQuestion): Promise<void> {
+    await this.pronunciation.pronounce({
+      text: question.item.ttsText ?? question.item.hangul,
+      audioSrc: question.item.audioSrc,
+      lang: 'ko-KR',
+      rate: 0.8,
+    });
+  }
+
+  private async playCompletionAudio(): Promise<void> {
+    try {
+      const audio = new Audio(COMPLETION_AUDIO_SRC);
+      audio.currentTime = 0;
+      await audio.play();
+    } catch (error) {
+      console.warn('Failed to play completion audio.', error);
+    }
+  }
 }
 
-function createQuestionsForGroup(items: HangulItem[]): TestQuestion[] {
+function createAllPossibleQuestionsForGroup(
+  items: HangulItem[],
+): TestQuestion[] {
   const questionTypes: TestQuestionType[] = [
     'hangul-to-romanization',
     'romanization-to-hangul',
-    'pronunciation-to-hangul',
-    'pronunciation-to-romanization',
+    'audio-to-hangul',
+    'audio-to-romanization',
   ];
 
   const questions = items.flatMap((item) => {
     return questionTypes.map((type) => createQuestion(type, item, items));
   });
 
-  return shuffle(questions);
+  return questions;
+}
+
+function createRandomQuestionSet(
+  allQuestions: TestQuestion[],
+  count: number,
+): TestQuestion[] {
+  return shuffle(allQuestions).slice(0, count);
 }
 
 function createQuestion(
@@ -350,10 +636,9 @@ function getPromptForType(type: TestQuestionType, item: HangulItem): string {
       return item.hangul;
     case 'romanization-to-hangul':
       return item.romanization;
-    case 'pronunciation-to-hangul':
-      return item.practicalPronunciation;
-    case 'pronunciation-to-romanization':
-      return item.practicalPronunciation;
+    case 'audio-to-hangul':
+    case 'audio-to-romanization':
+      return 'audio';
   }
 }
 
@@ -363,9 +648,9 @@ function getAnswerForType(type: TestQuestionType, item: HangulItem): string {
       return item.romanization;
     case 'romanization-to-hangul':
       return item.hangul;
-    case 'pronunciation-to-hangul':
+    case 'audio-to-hangul':
       return item.hangul;
-    case 'pronunciation-to-romanization':
+    case 'audio-to-romanization':
       return item.romanization;
   }
 }
@@ -385,6 +670,24 @@ function createOptions(
   const wrongOptions = shuffle([...new Set(candidates)]).slice(0, 3);
 
   return shuffle([answer, ...wrongOptions]);
+}
+
+function createConfettiPieces(count: number): ConfettiPiece[] {
+  const emojis = ['🎉', '✨', '⭐', '🌟', '💫'];
+
+  return Array.from({ length: count }, (_, index) => ({
+    id: index,
+    left: randomBetween(0, 100),
+    delay: randomBetween(0, 700),
+    duration: randomBetween(1800, 3600),
+    size: randomBetween(18, 30),
+    rotation: randomBetween(0, 360),
+    emoji: emojis[index % emojis.length],
+  }));
+}
+
+function randomBetween(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function shuffle<T>(items: T[]): T[] {

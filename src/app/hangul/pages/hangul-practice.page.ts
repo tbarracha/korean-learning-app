@@ -1,10 +1,11 @@
 // file: src/app/hangul/pages/hangul-practice.page.ts
 
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HANGUL_GROUPS } from '../data/hangul-groups';
 import { HangulWritingPadComponent } from '../components/hangul-writing-pad.component';
+import { HangulPronunciationService } from '../services/hangul-pronunciation.service';
 
 @Component({
   selector: 'app-hangul-practice-page',
@@ -134,6 +135,9 @@ import { HangulWritingPadComponent } from '../components/hangul-writing-pad.comp
 })
 export class HangulPracticePage {
   private route = inject(ActivatedRoute);
+  private pronunciation = inject(HangulPronunciationService);
+
+  private lastPronouncedItemId: string | undefined;
 
   private paramMap = toSignal(this.route.paramMap, {
     initialValue: this.route.snapshot.paramMap,
@@ -207,4 +211,27 @@ export class HangulPracticePage {
 
     return this.groups[currentGroupIndex + 1];
   });
+
+  constructor() {
+    effect(() => {
+      const item = this.item();
+
+      if (!item) {
+        return;
+      }
+
+      if (this.lastPronouncedItemId === item.id) {
+        return;
+      }
+
+      this.lastPronouncedItemId = item.id;
+
+      void this.pronunciation.pronounce({
+        text: item.ttsText ?? item.hangul,
+        audioSrc: item.audioSrc,
+        lang: 'ko-KR',
+        rate: 0.8,
+      });
+    });
+  }
 }
